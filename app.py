@@ -39,8 +39,6 @@ html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
 /* App Background */
 [data-testid="stAppViewContainer"] {
     background-color: var(--bg-color);
-    background-image: radial-gradient(#111111 1px, transparent 1px);
-    background-size: 20px 20px;
 }
 
 /* Sidebar */
@@ -60,12 +58,17 @@ html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
     pointer-events: none;
 }
 
-/* Typography for Headers */
+/* Typography for Headers & Code */
 h1, h2, h3, h4, h5, h6 {
     font-family: 'Anton', sans-serif !important;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-color);
+}
+
+pre, code {
+    background-color: #111111 !important;
+    color: #ffffff !important;
 }
 
 h1 {
@@ -78,8 +81,8 @@ h1 {
 
 h2 {
     font-size: 2.5rem !important;
-    background-color: var(--border-color);
-    color: #ffffff;
+    background-color: var(--border-color) !important;
+    color: #ffffff !important;
     display: inline-block;
     padding: 0 10px;
     box-shadow: 4px 4px 0px var(--accent-color);
@@ -115,8 +118,8 @@ hr {
     transform: translate(6px, 6px);
 }
 
-/* Inputs & Selectboxes */
-.stTextInput > div > div > input, .stSelectbox > div > div > div {
+/* Inputs, Selectboxes, & Textareas */
+.stTextInput > div > div > input, .stSelectbox > div > div > div, .stTextArea > div > div > textarea {
     background-color: #ffffff !important;
     border: var(--border-width) solid var(--border-color) !important;
     border-radius: 0 !important;
@@ -124,9 +127,20 @@ hr {
     box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color) !important;
     font-size: 1.2rem !important;
 }
-.stTextInput > div > div > input:focus, .stSelectbox > div > div > div:focus {
+.stTextInput > div > div > input:focus, .stSelectbox > div > div > div:focus, .stTextArea > div > div > textarea:focus {
     box-shadow: inset 4px 4px 0px var(--accent-color) !important;
     outline: none !important;
+}
+
+/* Dropdown Menus */
+div[data-baseweb="popover"] ul, ul[role="listbox"], li[role="option"] {
+    background-color: #ffffff !important;
+    color: var(--text-color) !important;
+    font-family: 'Space Mono', monospace !important;
+}
+li[role="option"]:hover, li[aria-selected="true"] {
+    background-color: var(--accent-color) !important;
+    color: #ffffff !important;
 }
 
 /* Containers / Metrics / Expanders */
@@ -139,7 +153,7 @@ div[data-testid="metric-container"] {
     box-shadow: 4px 4px 0px var(--border-color);
     padding: 1rem;
 }
-.stExpander {
+[data-testid="stExpander"] {
     border: var(--border-width) solid var(--border-color) !important;
     border-radius: 0 !important;
     background-color: #ffffff !important;
@@ -159,6 +173,8 @@ div[data-testid="metric-container"] {
 
 /* Toast/Alert Boxes */
 div[data-testid="stAlert"] {
+    background-color: #ffffff !important;
+    color: var(--text-color) !important;
     border: var(--border-width) solid var(--border-color) !important;
     border-radius: 0 !important;
     box-shadow: 4px 4px 0px var(--border-color) !important;
