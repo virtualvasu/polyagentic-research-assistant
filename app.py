@@ -15,6 +15,160 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- Brutalist CSS Injection ---
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+/* Brutalist Theme Colors & Variables */
+:root {
+    --bg-color: #d6d6d6;
+    --text-color: #111111;
+    --accent-color: #ff3c00; /* Harsh orange-red */
+    --border-color: #111111;
+    --border-width: 4px;
+    --shadow-offset: 6px;
+}
+
+/* Global Font and Color Override */
+html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
+    font-family: 'Space Mono', monospace !important;
+    color: var(--text-color) !important;
+}
+
+/* App Background */
+[data-testid="stAppViewContainer"] {
+    background-color: var(--bg-color);
+    background-image: radial-gradient(#111111 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #e8e8e8 !important;
+    border-right: var(--border-width) solid var(--border-color);
+}
+[data-testid="stSidebar"]::before {
+    content: 'SYSTEM.CONFIG';
+    font-family: 'Anton', sans-serif;
+    font-size: 3rem;
+    color: var(--border-color);
+    opacity: 0.1;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    pointer-events: none;
+}
+
+/* Typography for Headers */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Anton', sans-serif !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-color);
+}
+
+h1 {
+    font-size: 4.5rem !important;
+    color: var(--accent-color);
+    text-shadow: 5px 5px 0px var(--border-color);
+    margin-bottom: 0.5rem !important;
+    line-height: 1.1 !important;
+}
+
+h2 {
+    font-size: 2.5rem !important;
+    background-color: var(--border-color);
+    color: #ffffff;
+    display: inline-block;
+    padding: 0 10px;
+    box-shadow: 4px 4px 0px var(--accent-color);
+}
+
+/* Dividers */
+hr {
+    border-top: var(--border-width) solid var(--border-color) !important;
+    margin: 2rem 0 !important;
+}
+
+/* Buttons */
+.stButton > button {
+    background-color: var(--accent-color) !important;
+    color: #ffffff !important;
+    border: var(--border-width) solid var(--border-color) !important;
+    border-radius: 0 !important;
+    font-family: 'Anton', sans-serif !important;
+    font-size: 1.5rem !important;
+    padding: 0.5rem 1rem !important;
+    text-transform: uppercase;
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color) !important;
+    transition: all 0.1s ease-in-out;
+}
+.stButton > button:hover {
+    background-color: #000000 !important;
+    color: var(--accent-color) !important;
+    box-shadow: 2px 2px 0px var(--border-color) !important;
+    transform: translate(4px, 4px);
+}
+.stButton > button:active {
+    box-shadow: 0px 0px 0px var(--border-color) !important;
+    transform: translate(6px, 6px);
+}
+
+/* Inputs & Selectboxes */
+.stTextInput > div > div > input, .stSelectbox > div > div > div {
+    background-color: #ffffff !important;
+    border: var(--border-width) solid var(--border-color) !important;
+    border-radius: 0 !important;
+    color: var(--text-color) !important;
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color) !important;
+    font-size: 1.2rem !important;
+}
+.stTextInput > div > div > input:focus, .stSelectbox > div > div > div:focus {
+    box-shadow: inset 4px 4px 0px var(--accent-color) !important;
+    outline: none !important;
+}
+
+/* Containers / Metrics / Expanders */
+[data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+    font-family: 'Anton', sans-serif !important;
+}
+div[data-testid="metric-container"] {
+    background-color: #ffffff;
+    border: var(--border-width) solid var(--border-color);
+    box-shadow: 4px 4px 0px var(--border-color);
+    padding: 1rem;
+}
+.stExpander {
+    border: var(--border-width) solid var(--border-color) !important;
+    border-radius: 0 !important;
+    background-color: #ffffff !important;
+    box-shadow: 4px 4px 0px var(--border-color);
+    margin-bottom: 1rem;
+}
+
+/* Progress Bar */
+.stProgress > div > div > div > div {
+    background-color: var(--accent-color) !important;
+}
+.stProgress > div > div {
+    background-color: #ffffff !important;
+    border: 2px solid var(--border-color) !important;
+    border-radius: 0 !important;
+}
+
+/* Toast/Alert Boxes */
+div[data-testid="stAlert"] {
+    border: var(--border-width) solid var(--border-color) !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0px var(--border-color) !important;
+    font-weight: bold;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
 # --- Check for API Keys ---
 def check_api_keys(provider):
     """Check if required API keys are present based on provider."""
@@ -81,14 +235,18 @@ with st.sidebar:
         )
         ollama_url = ""
     else:
-        llm_model = st.text_input(
+        ollama_models = os.environ.get("OLLAMA_MODELS", "llama3.1:latest,llama3.1:8b,qwen2.5:7b").split(",")
+        llm_model = st.selectbox(
             "Model Name",
-            value="llama3.3",
-            help="Enter the model name pulled in Ollama (e.g., llama3.3, mistral, llama3, phi3)"
+            options=[m.strip() for m in ollama_models if m.strip()],
+            index=0,
+            help="Select your local Ollama model"
         )
+        
+        default_ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         ollama_url = st.text_input(
             "Ollama Host URL",
-            value="http://localhost:11434",
+            value=default_ollama_url,
             help="URL to your local Ollama instance"
         )
     

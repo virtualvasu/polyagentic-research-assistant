@@ -331,7 +331,7 @@ def create_writer_chain():
             return content if content else "Draft in progress..."
         except Exception as e:
             print(f"Writer error: {e}")
-            return "Error generating draft. Please try again."
+            raise RuntimeError(f"LLM Error in Writer: {e}")
     
     return writer_invoke
 
@@ -346,7 +346,7 @@ def create_critique_chain():
         
         # Safety checks
         if len(draft.strip()) < 100:
-            return "APPROVED - Draft is minimal but acceptable."
+            return "REJECTED - Draft is too short. Please generate a comprehensive report."
         
         if revision_num >= 3:
             return "APPROVED - Maximum revisions reached. The report is satisfactory."
@@ -363,6 +363,6 @@ def create_critique_chain():
             return content if content else "APPROVED"
         except Exception as e:
             print(f"Critique error: {e}")
-            return "APPROVED - Error in critique, proceeding with current draft."
+            raise RuntimeError(f"LLM Error in Critiquer: {e}")
     
     return critique_invoke
