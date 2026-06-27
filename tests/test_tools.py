@@ -39,3 +39,20 @@ def test_researcher_with_callable_tavily_tool(monkeypatch):
     researcher = agents.create_researcher_agent()
     out = researcher({"input": "test query"})
     assert "output" in out and isinstance(out["output"], str)
+
+
+def test_get_llm():
+    from langchain_groq import ChatGroq
+    from langchain_ollama import ChatOllama
+    
+    # Test fallback to default
+    assert agents._get_llm(None) == agents.llm
+    
+    # Test Groq instantiation
+    groq_llm = agents._get_llm({"llm_provider": "groq", "llm_model": "gemma2-9b-it"})
+    assert isinstance(groq_llm, ChatGroq)
+    
+    # Test Ollama instantiation
+    ollama_llm = agents._get_llm({"llm_provider": "ollama", "llm_model": "mistral", "ollama_url": "http://127.0.0.1:11434"})
+    assert isinstance(ollama_llm, ChatOllama)
+

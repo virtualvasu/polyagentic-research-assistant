@@ -21,6 +21,9 @@ class ResearchState(TypedDict):
     revision_number: int
     next_step: str
     current_sub_task: str
+    llm_provider: str
+    llm_model: str
+    ollama_url: str
 
 # --- 2. Initialize Chains and Agents ---
 
@@ -58,7 +61,12 @@ def research_node(state: ResearchState) -> dict:
     try:
         # researcher_agent is a Python callable (function), not an object with `.invoke`.
         # Call it directly and expect a dict return value.
-        result = researcher_agent({"input": sub_task})
+        result = researcher_agent({
+            "input": sub_task,
+            "llm_provider": state.get("llm_provider", "groq"),
+            "llm_model": state.get("llm_model", "llama-3.3-70b-versatile"),
+            "ollama_url": state.get("ollama_url", "")
+        })
         findings = result.get("output", "Research completed")
         print(f"Found: {str(findings)[:100]}...")
     except Exception as e:

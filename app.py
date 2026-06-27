@@ -16,14 +16,18 @@ st.set_page_config(
 )
 
 # --- Check for API Keys ---
-def check_api_keys():
-    """Check if required API keys are present."""
-    groq_key = os.environ.get("GROQ_API_KEY")
+def check_api_keys(provider):
+    """Check if required API keys are present based on provider."""
     tavily_key = os.environ.get("TAVILY_API_KEY")
-    
-    if not groq_key or not tavily_key:
-        st.error("API keys not found! Please set GROQ_API_KEY and TAVILY_API_KEY in your .env file.")
+    if not tavily_key:
+        st.error("API keys not found! Please set TAVILY_API_KEY in your .env file.")
         return False
+        
+    if provider == "groq":
+        groq_key = os.environ.get("GROQ_API_KEY")
+        if not groq_key:
+            st.error("API keys not found! Please set GROQ_API_KEY in your .env file.")
+            return False
     
     st.success("API keys loaded successfully.")
     return True
@@ -43,22 +47,7 @@ Enter a research topic, and a team of AI agents will collaborate to produce a co
 
 st.divider()
 
-
-# --- Check API Keys ---
-if not check_api_keys():
-    st.stop()
-
-# --- Main Application ---
-st.header("Start Your Research")
-
-# User input
-topic = st.text_input(
-    "Enter your research topic:",
-    placeholder="e.g., Impact of quantum computing on cybersecurity",
-    key="topic_input"
-)
-
-# Sidebar configuration
+# --- Sidebar Configuration ---
 with st.sidebar:
     st.header("Configuration")
     max_iterations = st.slider(
@@ -70,6 +59,40 @@ with st.sidebar:
     )
     
     st.divider()
+    st.header("LLM Configuration")
+    
+    llm_provider = st.selectbox(
+        "LLM Provider",
+        options=["Groq", "Ollama"],
+        index=0,
+        help="Choose the LLM backend to run the agents"
+    )
+    
+    if llm_provider == "Groq":
+        llm_model = st.selectbox(
+            "Model Name",
+            options=[
+                "llama-3.3-70b-versatile",
+                "mixtral-8x7b-32768",
+                "gemma2-9b-it"
+            ],
+            index=0,
+            help="Select the Groq model to use"
+        )
+        ollama_url = ""
+    else:
+        llm_model = st.text_input(
+            "Model Name",
+            value="llama3.3",
+            help="Enter the model name pulled in Ollama (e.g., llama3.3, mistral, llama3, phi3)"
+        )
+        ollama_url = st.text_input(
+            "Ollama Host URL",
+            value="http://localhost:11434",
+            help="URL to your local Ollama instance"
+        )
+    
+    st.divider()
     st.subheader("How it works")
     st.markdown("""
     1. **Supervisor** analyzes the task
@@ -78,6 +101,20 @@ with st.sidebar:
     4. **Critiquer** reviews quality
     5. Loop continues until approved
     """)
+
+# --- Check API Keys ---
+if not check_api_keys(llm_provider.lower()):
+    st.stop()
+
+# --- Main Application ---
+st.header("Start Your Research")
+
+# User input
+topic = st.text_input(
+    "Enter your research topic:",
+    placeholder="e.g., Impact of quantum computing on cybersecurity",
+    key="topic_input"
+)
 
 # Start button
 if st.button("Start Research", type="primary", use_container_width=True):
@@ -92,7 +129,10 @@ if st.button("Start Research", type="primary", use_container_width=True):
             "critique_notes": "",
             "revision_number": 0,
             "next_step": "",
-            "current_sub_task": ""
+            "current_sub_task": "",
+            "llm_provider": llm_provider.lower(),
+            "llm_model": llm_model,
+            "ollama_url": ollama_url
         }
         
         # Configuration

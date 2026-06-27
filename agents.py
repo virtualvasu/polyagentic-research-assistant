@@ -40,6 +40,50 @@ tavily_tool = TavilySearch(
 )
 
 
+def _get_llm(state_or_dict):
+    """Dynamic LLM client factory based on state values.
+    Falls back to the default global `llm` if config is missing or invalid.
+    """
+    if not isinstance(state_or_dict, dict):
+        return llm
+        
+    provider = state_or_dict.get("llm_provider")
+    model_name = state_or_dict.get("llm_model")
+    
+    if not provider:
+        return llm
+        
+    provider = provider.lower()
+    
+    if provider == "ollama":
+        try:
+            from langchain_ollama import ChatOllama
+            url = state_or_dict.get("ollama_url") or "http://localhost:11434"
+            m_name = model_name if model_name else "llama3.3"
+            return ChatOllama(
+                model=m_name,
+                temperature=0.3,
+                base_url=url
+            )
+        except Exception as e:
+            print(f"Error initializing ChatOllama: {e}. Falling back to default Groq LLM.")
+            return llm
+    else:
+        # Groq
+        try:
+            from langchain_groq import ChatGroq
+            m_name = model_name if model_name else "llama-3.3-70b-versatile"
+            return ChatGroq(
+                model=m_name,
+                temperature=0.3,
+                max_tokens=4096,
+                groq_api_key=os.environ.get("GROQ_API_KEY")
+            )
+        except Exception as e:
+            print(f"Error initializing ChatGroq: {e}. Falling back to default Groq LLM.")
+            return llm
+
+
 def _call_llm(llm_obj, *args, **kwargs):
     """Helper to call LLM or tool objects that may expose different APIs.
 
@@ -136,7 +180,8 @@ def create_supervisor_chain():
         )
         
         try:
-            response = _call_llm(llm, prompt)
+            llm_inst = _get_llm(state)
+            response = _call_llm(llm_inst, prompt)
             content = response.content if hasattr(response, 'content') else str(response)
             
             # Try to parse JSON
@@ -229,7 +274,8 @@ def create_researcher_agent():
 Format as clear bullet points with the most important information."""
 
             try:
-                summary_response = _call_llm(llm, summary_prompt)
+                llm_inst = _get_llm(input_dict)
+                summary_response = _call_llm(llm_inst, summary_prompt)
                 summary = summary_response.content if hasattr(summary_response, 'content') else str(summary_response)
             except Exception as e:
                 print(f"Summarization error: {e}")
@@ -266,7 +312,8 @@ def create_writer_chain():
         )
         
         try:
-            response = _call_llm(llm, prompt)
+            llm_inst = _get_llm(state)
+            response = _call_llm(llm_inst, prompt)
             content = response.content if hasattr(response, 'content') else str(response)
             return content if content else "Draft in progress..."
         except Exception as e:
@@ -297,7 +344,8 @@ def create_critique_chain():
         )
         
         try:
-            response = _call_llm(llm, prompt)
+            llm_inst = _get_llm(state)
+            response = _call_llm(llm_inst, prompt)
             content = response.content if hasattr(response, 'content') else str(response)
             return content if content else "APPROVED"
         except Exception as e:
