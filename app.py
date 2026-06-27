@@ -2,9 +2,14 @@
 
 import streamlit as st
 import os
+import uuid
 from dotenv import load_dotenv
 from graph import app
-import time
+
+from ui.style import apply_brutalist_theme
+from ui.sidebar import render_sidebar
+from ui.state import check_api_keys, init_session_state
+from ui.stream_handler import process_stream, render_pipeline_header, _pipeline_html, _downgrade_headers
 
 # Load environment variables
 load_dotenv()
@@ -16,376 +21,120 @@ st.set_page_config(
 )
 
 # --- Brutalist CSS Injection ---
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-
-/* Brutalist Theme Colors & Variables */
-:root {
-    --bg-color: #d6d6d6;
-    --text-color: #111111;
-    --accent-color: #ff3c00; /* Harsh orange-red */
-    --border-color: #111111;
-    --border-width: 4px;
-    --shadow-offset: 6px;
-}
-
-/* Global Font and Color Override */
-html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
-    font-family: 'Space Mono', monospace !important;
-    color: var(--text-color) !important;
-}
-
-/* App Background */
-[data-testid="stAppViewContainer"] {
-    background-color: var(--bg-color);
-}
-
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background-color: #e8e8e8 !important;
-    border-right: var(--border-width) solid var(--border-color);
-}
-[data-testid="stSidebar"]::before {
-    content: 'SYSTEM.CONFIG';
-    font-family: 'Anton', sans-serif;
-    font-size: 3rem;
-    color: var(--border-color);
-    opacity: 0.1;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    pointer-events: none;
-}
-
-/* Typography for Headers & Code */
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Anton', sans-serif !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-color);
-}
-
-pre, code {
-    background-color: #111111 !important;
-    color: #ffffff !important;
-}
-
-h1 {
-    font-size: 4.5rem !important;
-    color: var(--accent-color);
-    text-shadow: 5px 5px 0px var(--border-color);
-    margin-bottom: 0.5rem !important;
-    line-height: 1.1 !important;
-}
-
-h2 {
-    font-size: 2.5rem !important;
-    background-color: var(--border-color) !important;
-    color: #ffffff !important;
-    display: inline-block;
-    padding: 0 10px;
-    box-shadow: 4px 4px 0px var(--accent-color);
-}
-
-/* Dividers */
-hr {
-    border-top: var(--border-width) solid var(--border-color) !important;
-    margin: 2rem 0 !important;
-}
-
-/* Buttons */
-.stButton > button {
-    background-color: var(--accent-color) !important;
-    color: #ffffff !important;
-    border: var(--border-width) solid var(--border-color) !important;
-    border-radius: 0 !important;
-    font-family: 'Anton', sans-serif !important;
-    font-size: 1.5rem !important;
-    padding: 0.5rem 1rem !important;
-    text-transform: uppercase;
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color) !important;
-    transition: all 0.1s ease-in-out;
-}
-.stButton > button:hover {
-    background-color: #000000 !important;
-    color: var(--accent-color) !important;
-    box-shadow: 2px 2px 0px var(--border-color) !important;
-    transform: translate(4px, 4px);
-}
-.stButton > button:active {
-    box-shadow: 0px 0px 0px var(--border-color) !important;
-    transform: translate(6px, 6px);
-}
-
-/* Inputs, Selectboxes, & Textareas */
-.stTextInput > div > div > input, .stSelectbox > div > div > div, .stTextArea > div > div > textarea {
-    background-color: #ffffff !important;
-    border: var(--border-width) solid var(--border-color) !important;
-    border-radius: 0 !important;
-    color: var(--text-color) !important;
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color) !important;
-    font-size: 1.2rem !important;
-}
-.stTextInput > div > div > input:focus, .stSelectbox > div > div > div:focus, .stTextArea > div > div > textarea:focus {
-    box-shadow: inset 4px 4px 0px var(--accent-color) !important;
-    outline: none !important;
-}
-
-/* Dropdown Menus */
-div[data-baseweb="popover"] ul, ul[role="listbox"], li[role="option"] {
-    background-color: #ffffff !important;
-    color: var(--text-color) !important;
-    font-family: 'Space Mono', monospace !important;
-}
-li[role="option"]:hover, li[aria-selected="true"] {
-    background-color: var(--accent-color) !important;
-    color: #ffffff !important;
-}
-
-/* Containers / Metrics / Expanders */
-[data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
-    font-family: 'Anton', sans-serif !important;
-}
-div[data-testid="metric-container"] {
-    background-color: #ffffff;
-    border: var(--border-width) solid var(--border-color);
-    box-shadow: 4px 4px 0px var(--border-color);
-    padding: 1rem;
-}
-[data-testid="stExpander"] {
-    border: var(--border-width) solid var(--border-color) !important;
-    border-radius: 0 !important;
-    background-color: #ffffff !important;
-    box-shadow: 4px 4px 0px var(--border-color);
-    margin-bottom: 1rem;
-}
-
-/* Progress Bar */
-.stProgress > div > div > div > div {
-    background-color: var(--accent-color) !important;
-}
-.stProgress > div > div {
-    background-color: #ffffff !important;
-    border: 2px solid var(--border-color) !important;
-    border-radius: 0 !important;
-}
-
-/* Toast/Alert Boxes */
-div[data-testid="stAlert"] {
-    background-color: #ffffff !important;
-    color: var(--text-color) !important;
-    border: var(--border-width) solid var(--border-color) !important;
-    border-radius: 0 !important;
-    box-shadow: 4px 4px 0px var(--border-color) !important;
-    font-weight: bold;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# --- Check for API Keys ---
-def check_api_keys(provider):
-    """Check if required API keys are present based on provider."""
-    tavily_key = os.environ.get("TAVILY_API_KEY")
-    if not tavily_key:
-        st.error("API keys not found! Please set TAVILY_API_KEY in your .env file.")
-        return False
-        
-    if provider == "groq":
-        groq_key = os.environ.get("GROQ_API_KEY")
-        if not groq_key:
-            st.error("API keys not found! Please set GROQ_API_KEY in your .env file.")
-            return False
-    
-    st.success("API keys loaded successfully.")
-    return True
+apply_brutalist_theme()
 
 # --- Header ---
 st.title("Multi-Agent Research Assistant")
 st.markdown("""
-Welcome to your intelligent research assistant! 
-Enter a research topic, and a team of AI agents will collaborate to produce a comprehensive report.
-
-**Agent Team:**
-- **Supervisor**: Manages the workflow and coordinates tasks
-- **Researcher**: Gathers information using web search
-- **Writer**: Creates and revises the research report
-- **Critiquer**: Reviews drafts and provides feedback
+A team of AI agents will collaborate to research your topic and produce a polished report.
+Configure the workflow in the sidebar, enter your topic, and hit **Start**.
 """)
 
 st.divider()
 
 # --- Sidebar Configuration ---
-with st.sidebar:
-    st.header("Configuration")
-    max_iterations = st.slider(
-        "Max Workflow Iterations",
-        min_value=5,
-        max_value=25,
-        value=15,
-        help="Maximum number of agent interactions"
-    )
-    
-    st.divider()
-    st.header("LLM Configuration")
-    
-    llm_provider = st.selectbox(
-        "LLM Provider",
-        options=["Groq", "Ollama"],
-        index=0,
-        help="Choose the LLM backend to run the agents"
-    )
-    
-    if llm_provider == "Groq":
-        llm_model = st.selectbox(
-            "Model Name",
-            options=[
-                "llama-3.3-70b-versatile",
-                "mixtral-8x7b-32768",
-                "gemma2-9b-it"
-            ],
-            index=0,
-            help="Select the Groq model to use"
-        )
-        ollama_url = ""
-    else:
-        ollama_models = os.environ.get("OLLAMA_MODELS", "llama3.1:latest,llama3.1:8b,qwen2.5:7b").split(",")
-        llm_model = st.selectbox(
-            "Model Name",
-            options=[m.strip() for m in ollama_models if m.strip()],
-            index=0,
-            help="Select your local Ollama model"
-        )
-        
-        default_ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        ollama_url = st.text_input(
-            "Ollama Host URL",
-            value=default_ollama_url,
-            help="URL to your local Ollama instance"
-        )
-    
-    st.divider()
-    st.subheader("How it works")
-    st.markdown("""
-    1. **Supervisor** analyzes the task
-    2. **Researcher** gathers information
-    3. **Writer** creates a draft
-    4. **Critiquer** reviews quality
-    5. Loop continues until approved
-    """)
+max_iterations, llm_provider, llm_model, ollama_url = render_sidebar()
 
 # --- Check API Keys ---
 if not check_api_keys(llm_provider.lower()):
     st.stop()
 
-# --- Main Application ---
-import uuid
+# --- State Initialization ---
+init_session_state()
+
+# ── Helper: render the structured final report ────────────────────────────────
+def render_structured_report(report_text: str):
+    """
+    Parses the markdown report (with ## headers) and renders each section
+    as a distinct styled block rather than a raw markdown dump.
+    """
+    # Split on level-2 headers
+    import re
+    # Split keeping the section title
+    parts = re.split(r"(?m)^##\s+", report_text)
+
+    sections = []
+    # First part before any ## is preamble (usually empty)
+    for part in parts[1:]:
+        lines     = part.strip().split("\n", 1)
+        title     = lines[0].strip()
+        body      = lines[1].strip() if len(lines) > 1 else ""
+        sections.append((title, body))
+
+    if not sections:
+        # Fallback: just render raw markdown
+        st.markdown(report_text)
+        return
+
+    # Build the wrapper
+    st.markdown('<div class="report-wrapper">', unsafe_allow_html=True)
+
+    # Title bar
+    word_count = len(report_text.split())
+    st.markdown(f'<div class="report-title-bar"><span>FINAL RESEARCH REPORT</span><span style="font-family: Space Mono; font-size:0.7rem; color: rgba(255,255,255,0.6);">{word_count} WORDS</span></div>', unsafe_allow_html=True)
+
+    for title, body in sections:
+        title_upper = title.upper()
+
+        if "KEY TAKEAWAY" in title_upper or "TAKEAWAY" in title_upper:
+            st.markdown(f'<div class="report-key-takeaway"><span class="report-section-label">-- KEY TAKEAWAY</span>', unsafe_allow_html=True)
+            st.markdown(f'<p style="color:#ffffff; font-size:1.05rem;">{body}</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        elif "BOTTOM LINE" in title_upper or "CONCLUSION" in title_upper:
+            st.markdown(f'<div class="report-bottom-line"><span class="report-section-label">-- BOTTOM LINE</span>', unsafe_allow_html=True)
+            st.markdown(f'<p style="color:#ffffff;">{body}</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        elif "ANALYSIS" in title_upper:
+            st.markdown(f'<div class="report-section report-analysis"><span class="report-section-label">// {title.upper()}</span>', unsafe_allow_html=True)
+            st.markdown(body)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        else:
+            st.markdown(f'<div class="report-section"><span class="report-section-label">// {title.upper()}</span>', unsafe_allow_html=True)
+            st.markdown(body)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = str(uuid.uuid4())
-if "run_status" not in st.session_state:
-    st.session_state.run_status = "idle"
-if "all_states" not in st.session_state:
-    st.session_state.all_states = []
-if "final_state" not in st.session_state:
-    st.session_state.final_state = None
-if "step_count" not in st.session_state:
-    st.session_state.step_count = 0
+# ─────────────────────────────────────────────────────────────────────────────
+# IDLE / INPUT STATE
+# ─────────────────────────────────────────────────────────────────────────────
+if st.session_state.run_status == "idle":
+    render_pipeline_header(active_agent=None)
 
-st.header("Start Your Research")
+    st.markdown("### Start Your Research")
+    topic = st.text_input(
+        "Enter your research topic:",
+        placeholder="e.g., Impact of quantum computing on cybersecurity",
+        key="topic_input"
+    )
 
-# User input
-topic = st.text_input(
-    "Enter your research topic:",
-    placeholder="e.g., Impact of quantum computing on cybersecurity",
-    key="topic_input"
-)
+    if st.button("START RESEARCH", type="primary"):
+        if not topic:
+            st.error("Please enter a research topic.")
+        else:
+            st.session_state.thread_id  = str(uuid.uuid4())
+            st.session_state.run_status = "running"
+            st.session_state.all_states = []
+            st.session_state.final_state = None
+            st.session_state.step_count  = 0
+            st.session_state.completed_agents = []
+            st.session_state.topic = topic
+            st.rerun()
 
-if st.button("Start / Restart Research", type="primary"):
-    if not topic:
-        st.error("Please enter a research topic.")
-    else:
-        st.session_state.thread_id = str(uuid.uuid4())
-        st.session_state.run_status = "running"
-        st.session_state.all_states = []
-        st.session_state.final_state = None
-        st.session_state.step_count = 0
-        st.rerun()
+# ─────────────────────────────────────────────────────────────────────────────
+# RUNNING STATE
+# ─────────────────────────────────────────────────────────────────────────────
+elif st.session_state.run_status == "running":
 
-config = {"configurable": {"thread_id": st.session_state.thread_id}, "recursion_limit": max_iterations}
+    config = {"configurable": {"thread_id": st.session_state.thread_id}, "recursion_limit": max_iterations}
+    topic  = st.session_state.get("topic", "")
 
-def process_stream(stream_obj):
-    progress_bar = st.progress(0)
-    progress_container = st.container()
-    
-    with progress_container:
-        st.subheader("Agent Activity Log")
-        
-        for step in stream_obj:
-            st.session_state.step_count += 1
-            progress_bar.progress(min(st.session_state.step_count / max_iterations, 1.0))
-            
-            node_name = list(step.keys())[0]
-            node_output = step[node_name]
-            
-            st.session_state.all_states.append((node_name, node_output))
-            st.session_state.final_state = node_output
-            
-            with st.container():
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.markdown(f"### Agent: `{node_name.upper()}`")
-                with col2:
-                    st.caption(f"Step {st.session_state.step_count}")
-                
-                if node_name == "supervisor":
-                    st.markdown(f"**Decision:** {node_output.get('next_step', 'N/A')}")
-                    st.markdown(f"**Task:** {node_output.get('current_sub_task', 'N/A')}")
-                elif node_name == "researcher":
-                    findings = node_output.get('research_findings', [])
-                    if findings:
-                        st.success("Research completed")
-                        latest = findings[-1]
-                        with st.expander(f"Show Full Research (Step {st.session_state.step_count})"):
-                            st.markdown(latest)
-                elif node_name == "writer":
-                    draft = node_output.get('draft', '')
-                    st.success(f"Draft {node_output.get('revision_number', 0)} generated ({len(draft)} chars)")
-                    with st.expander(f"Show Full Draft (Step {st.session_state.step_count})"):
-                        st.markdown(draft)
-                elif node_name == "critiquer":
-                    critique = node_output.get('critique_notes', '')
-                    if "APPROVED" in critique.upper():
-                        st.success("Draft APPROVED!")
-                    else:
-                        st.warning("Revisions requested")
-                    with st.expander(f"Show Full Critique (Step {st.session_state.step_count})"):
-                        st.markdown(critique)
-                elif node_name == "human_review":
-                    st.info("Human review required.")
-                
-                st.divider()
-            time.sleep(0.3)
-            
-    # After stream finishes, check if it's paused
-    state = app.get_state(config)
-    if state.next and "human_review" in state.next:
-        st.session_state.run_status = "paused_at_review"
-        st.rerun()
-    elif not state.next:
-        st.session_state.run_status = "completed"
-        progress_bar.progress(1.0)
-        st.rerun()
+    st.info("Agents are working — this may take a minute...")
 
-# --- Execution Flow ---
-
-if st.session_state.run_status == "running":
-    st.info("Agents are working...")
-    
-    # If starting fresh
     if st.session_state.step_count == 0:
         initial_state = {
             "main_task": topic,
@@ -403,87 +152,159 @@ if st.session_state.run_status == "running":
         }
         stream_obj = app.stream(initial_state, config=config)
     else:
-        # Resuming from a state
         stream_obj = app.stream(None, config=config)
-        
+
     try:
-        process_stream(stream_obj)
+        process_stream(stream_obj, app, config, max_iterations)
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
         st.session_state.run_status = "error"
 
+    # Always show a restart button
+    if st.button("START OVER"):
+        st.session_state.run_status      = "idle"
+        st.session_state.completed_agents = []
+        st.rerun()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HUMAN REVIEW (HITL) GATE
+# ─────────────────────────────────────────────────────────────────────────────
 elif st.session_state.run_status == "paused_at_review":
-    st.warning("⏸️ Workflow Paused: Research Review Gate")
-    st.markdown("Please review the findings before the Writer drafts the report.")
-    
-    # Get current state
-    current_state = app.get_state(config).values
-    findings = current_state.get("research_findings", [])
+
+    config = {"configurable": {"thread_id": st.session_state.thread_id}, "recursion_limit": max_iterations}
+
+    # Show pipeline with human_review as active
+    st.markdown(_pipeline_html("human_review"), unsafe_allow_html=True)
+
+    # Big orange banner
+    st.markdown("""
+    <div class="hitl-banner">
+        <div class="hitl-banner-icon">[ PAUSE ]</div>
+        <div class="hitl-banner-text">
+            <h3>Awaiting Your Review</h3>
+            <p>The Researcher has finished. Review and optionally edit the findings before the Writer begins drafting the report.</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Get state
+    current_state   = app.get_state(config).values
+    findings        = current_state.get("research_findings", [])
     latest_findings = findings[-1] if findings else "No findings available."
-    
-    edited_text = st.text_area("Research Findings (Edit if necessary):", value=latest_findings, height=300)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Proceed to Writer", type="primary", use_container_width=True):
-            app.update_state(config, {"hitl_edited_findings": edited_text, "hitl_approved": True, "next_step": "supervisor"}, as_node="human_review")
-            st.session_state.run_status = "running"
-            st.rerun()
-            
-    with col2:
-        new_query = st.text_input("New query for Re-search:")
-        if st.button("Re-search", use_container_width=True):
-            if new_query:
-                app.update_state(config, {"current_sub_task": new_query, "next_step": "researcher"}, as_node="human_review")
+
+    col_read, col_edit = st.columns(2)
+
+    with col_read:
+        st.markdown('<span class="hitl-panel-label">RESEARCH FINDINGS &mdash; READ ONLY</span>', unsafe_allow_html=True)
+        st.markdown('<div class="hitl-panel">', unsafe_allow_html=True)
+        st.markdown(_downgrade_headers(latest_findings))
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Word count signal
+        wc = len(latest_findings.split())
+        st.caption(f"{wc} words in findings")
+
+    with col_edit:
+        st.markdown('<span class="hitl-panel-label">EDIT BEFORE SENDING TO WRITER</span>', unsafe_allow_html=True)
+        edited_text = st.text_area(
+            label="",
+            value=latest_findings,
+            height=340,
+            label_visibility="collapsed"
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("APPROVE + WRITE", type="primary", use_container_width=True):
+                app.update_state(
+                    config,
+                    {"hitl_edited_findings": edited_text, "hitl_approved": True, "next_step": "supervisor"},
+                    as_node="human_review"
+                )
                 st.session_state.run_status = "running"
                 st.rerun()
-            else:
-                st.error("Please enter a query to re-search.")
 
+        with btn_col2:
+            new_query = st.text_input("Re-search query:", placeholder="Enter a new query…")
+            if st.button("RE-SEARCH", use_container_width=True):
+                if new_query:
+                    app.update_state(
+                        config,
+                        {"current_sub_task": new_query, "next_step": "researcher"},
+                        as_node="human_review"
+                    )
+                    st.session_state.run_status = "running"
+                    st.rerun()
+                else:
+                    st.error("Please enter a query.")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPLETED STATE
+# ─────────────────────────────────────────────────────────────────────────────
 elif st.session_state.run_status == "completed":
-    st.success("Research Complete!")
-    
-    st.divider()
-    
+
+    config      = {"configurable": {"thread_id": st.session_state.thread_id}, "recursion_limit": max_iterations}
     final_state = app.get_state(config).values
     final_draft = final_state.get("draft", "")
-                    
+
+    # Show full pipeline as done
+    all_done_html = _pipeline_html(active_agent=None)
+    st.markdown(all_done_html, unsafe_allow_html=True)
+    st.success("Research Complete.")
+    st.divider()
+
     if final_draft and len(final_draft.strip()) > 50:
-        st.header("Final Research Report")
-        
-        with st.container():
-            st.markdown(final_draft)
-        
+        render_structured_report(final_draft)
+
         st.divider()
-        
+
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Report Statistics")
-            st.metric("Revisions", final_state.get("revision_number", 0) if isinstance(final_state, dict) else 0)
+            rev_num = final_state.get("revision_number", 0) if isinstance(final_state, dict) else 0
+            st.metric("Revisions", rev_num)
             st.metric("Word Count", len(final_draft.split()))
-            
+
         with col2:
-            st.subheader("Research Findings")
+            st.subheader("Source Findings")
             if isinstance(final_state, dict) and final_state.get("research_findings"):
-                with st.expander("View all research data"):
+                with st.expander("View All Research Data"):
                     for idx, finding in enumerate(final_state.get("research_findings", []), 1):
                         st.markdown(f"**Finding {idx}:**")
                         st.write(finding)
-                        
+
         st.download_button(
-            label="Download Report",
+            label="DOWNLOAD REPORT (.txt)",
             data=final_draft,
-            file_name=f"research_report.txt",
+            file_name="research_report.txt",
             mime="text/plain",
             use_container_width=True
         )
     else:
         st.error("No report was generated. Please try again.")
 
+    if st.button("START NEW RESEARCH"):
+        st.session_state.run_status       = "idle"
+        st.session_state.completed_agents = []
+        st.rerun()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR STATE
+# ─────────────────────────────────────────────────────────────────────────────
+elif st.session_state.run_status == "error":
+    st.error("Something went wrong. Check logs or try again.")
+    if st.button("START OVER"):
+        st.session_state.run_status       = "idle"
+        st.session_state.completed_agents = []
+        st.rerun()
+
 # Footer
 st.divider()
 st.markdown("""
-<div style='text-align: center; color: gray;'>
-    <p>Powered by LangChain, LangGraph, Groq & Tavily</p>
+<div style='text-align: center; color: #888;'>
+    <p style="color:#888 !important;">Powered by LangChain · LangGraph · Groq · Tavily</p>
 </div>
 """, unsafe_allow_html=True)
