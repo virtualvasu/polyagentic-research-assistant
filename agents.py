@@ -7,7 +7,6 @@ from langchain_groq import ChatGroq
 from langchain_tavily import TavilySearch
 from prompts import (
     supervisor_prompt_template,
-    researcher_prompt_template,
     writer_prompt_template,
     critique_prompt_template
 )
@@ -267,11 +266,22 @@ def create_researcher_agent():
                 raw_output = "No results found"
             
             # Summarize with LLM
-            summary_prompt = f"""Based on these search results about "{query}", provide a concise summary of key findings (5-7 bullet points):
+            summary_prompt = f"""You are a research analyst extracting facts from search results.
 
+Topic: "{query}"
+
+Search Results:
 {raw_output}
 
-Format as clear bullet points with the most important information."""
+Instructions:
+- Extract exactly 5 factual bullet points from the search results above.
+- Each bullet must be 1-2 sentences maximum.
+- Each bullet must end with a source attribution in brackets, e.g. [Source: URL].
+- Prioritize quantitative data, dates, names, and specific claims over general statements.
+- Do NOT include opinions, introductions, conclusions, or filler phrases like "It is important to note" or "Research suggests that".
+- If the search results lack useful information, state "Insufficient data" rather than inventing content.
+
+Output only the bullet points, nothing else."""
 
             try:
                 llm_inst = _get_llm(input_dict)
