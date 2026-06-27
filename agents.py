@@ -311,8 +311,11 @@ Output only the bullet points, nothing else."""
 def create_writer_chain():
     """Creates the writer chain."""
     def writer_invoke(state):
-        research = state.get("research_findings", [])
-        research_text = "\n\n".join(research) if research else "No research available."
+        if state.get("hitl_approved") and state.get("hitl_edited_findings"):
+            research_text = state.get("hitl_edited_findings")
+        else:
+            research = state.get("research_findings", [])
+            research_text = "\n\n".join(research) if research else "No research available."
         
         prompt = writer_prompt_template.format(
             main_task=state.get("main_task", ""),

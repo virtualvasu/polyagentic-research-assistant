@@ -22,16 +22,19 @@ for step in app.stream(initial_state, config=config):
 
 ```python
 {
-    "main_task": str,           # Required. The research topic.
-    "research_findings": [],    # Required. Start empty.
-    "draft": "",                # Required. Start empty.
-    "critique_notes": "",       # Required. Start empty.
-    "revision_number": 0,       # Required. Start at 0.
-    "next_step": "",            # Required. Start empty.
-    "current_sub_task": "",     # Required. Start empty.
-    "llm_provider": str,        # Required. "groq" or "ollama".
-    "llm_model": str,           # Required. Model name string.
-    "ollama_url": str            # Optional. Ollama host URL.
+    "main_task": str,              # Required. The research topic.
+    "research_findings": [],       # Required. Start empty.
+    "draft": "",                   # Required. Start empty.
+    "critique_notes": "",          # Required. Start empty.
+    "revision_number": 0,          # Required. Start at 0.
+    "next_step": "",               # Required. Start empty.
+    "current_sub_task": "",        # Required. Start empty.
+    "llm_provider": str,           # Required. "groq" or "ollama".
+    "llm_model": str,              # Required. Model name string.
+    "ollama_url": str,             # Optional. Ollama host URL.
+    # --- HITL fields (planned) ---
+    "hitl_approved": False,        # Set to True when user confirms research.
+    "hitl_edited_findings": "",    # User-edited findings text (Edit mode only).
 }
 ```
 
@@ -47,10 +50,41 @@ Each yielded `step` is a dict with a single key (the node name) mapping to that 
 
 ```python
 # Example stream outputs:
-{"supervisor": {"next_step": "researcher", "current_sub_task": "..."}}
-{"researcher": {"research_findings": ["..."]}}
-{"writer":     {"draft": "...", "revision_number": 1}}
-{"critiquer":  {"critique_notes": "APPROVED - ...", "next_step": "END"}}
+{"supervisor":    {"next_step": "researcher", "current_sub_task": "..."}}
+{"researcher":    {"research_findings": ["..."]}}
+# --- Graph pauses here at human_review (planned) ---
+{"writer":        {"draft": "...", "revision_number": 1}}
+{"critiquer":     {"critique_notes": "APPROVED - ...", "next_step": "END"}}
+```
+
+---
+
+### Planned: Two-Phase Execution with HITL Interrupt
+
+When the Research Review Gate is implemented, `app.stream()` is replaced with a two-phase model:
+
+**Phase 1 — Stream until interrupt:**
+```python
+for step in app.stream(initial_state, config=config):
+    # Streams supervisor → researcher nodes
+    # Graph auto-pauses before human_review node
+    pass
+```
+
+**Phase 2 — Render UI, collect user decision:**
+```python
+# Streamlit shows bullets + 3 buttons
+# User clicks one of: Proceed / Edit / Re-search
+user_command = Command(resume={"action": "proceed" | "edit" | "research",
+                               "edited_findings": str,   # if Edit
+                               "new_query": str})         # if Re-search
+```
+
+**Phase 3 — Resume graph:**
+```python
+for step in app.stream(user_command, config=config):
+    # Continues from human_review → supervisor → writer → critiquer → END
+    pass
 ```
 
 ---

@@ -4,6 +4,8 @@
 
 A multi-agent research assistant that takes a topic from the user and produces a polished research report. Four specialized AI agents collaborate in a supervised loop — researching the web, writing drafts, critiquing quality, and coordinating the workflow — until the report meets quality standards or a revision cap is reached.
 
+The system includes a single **Human-in-the-Loop (HITL) checkpoint** after the research phase, giving the user the opportunity to review, edit, or redirect findings before any writing begins.
+
 ## 2. Architecture
 
 ```
@@ -17,17 +19,24 @@ A multi-agent research assistant that takes a topic from the user and produces a
 │              LangGraph State Machine (graph.py)      │
 │                                                      │
 │   ┌────────────┐     ┌────────────┐                  │
-│   │ Supervisor │────►│ Researcher │──┐               │
-│   │  (router)  │     │  (search)  │  │               │
-│   └─────┬──────┘◄────┘            │  │               │
-│         │                         │  │               │
-│         │    ┌────────────┐       │  │               │
-│         └───►│   Writer   │───────┘  │               │
-│              │  (draft)   │          │               │
-│              └─────┬──────┘          │               │
-│                    │                 │               │
-│              ┌─────▼──────┐         │               │
-│              │  Critiquer │─────────┘               │
+│   │ Supervisor │────►│ Researcher │                  │
+│   │  (router)  │     │  (search)  │                  │
+│   └─────┬──────┘     └─────┬──────┘                 │
+│         │                  │                         │
+│         │           ┌──────▼──────┐                  │
+│         │           │  [HITL]     │                  │
+│         │           │ Research    │◄── User Input     │
+│         │           │ Review Gate │                  │
+│         │           └──────┬──────┘                  │
+│         │◄─────────────────┘                         │
+│         │                                            │
+│         │    ┌────────────┐                          │
+│         └───►│   Writer   │                          │
+│              │  (draft)   │                          │
+│              └─────┬──────┘                          │
+│                    │                                 │
+│              ┌─────▼──────┐                          │
+│              │  Critiquer │──► supervisor (loop back) │
 │              │  (review)  │                          │
 │              └────────────┘                          │
 └─────────────────────────────────────────────────────┘
@@ -52,17 +61,23 @@ A multi-agent research assistant that takes a topic from the user and produces a
 
 1. User enters a research topic in the Streamlit UI.
 2. Supervisor routes to **Researcher** (no findings exist yet).
-3. Researcher queries Tavily Search, LLM summarizes results into bullet points.
-4. Supervisor routes to **Writer** (findings exist, no draft yet).
-5. Writer synthesizes research into a structured Markdown report.
-6. **Critiquer** evaluates the draft — either approves or requests revisions.
-7. If revisions needed, Supervisor sends back to Writer (max 3 revisions).
-8. On approval or max revisions, Supervisor routes to **END**.
-9. Streamlit displays the final report with stats and a download button.
+3. Researcher queries Tavily Search, LLM summarizes results into 5 sourced bullet points.
+4. **[HITL] Research Review Gate** — Streamlit pauses and shows the user the 5 bullet points with 3 options:
+   - **Proceed** → accept findings as-is and continue to Writer.
+   - **Edit** → user modifies the findings text directly before continuing.
+   - **Re-search** → user types a refined query; Researcher runs again.
+5. Supervisor routes to **Writer** (findings confirmed by user).
+6. Writer synthesizes research into a structured Markdown report (400–600 words).
+7. **Critiquer** evaluates the draft — either approves or returns max 3 concrete fixes.
+8. If revisions needed, Supervisor sends back to Writer (max 3 revisions).
+9. On approval or max revisions, Supervisor routes to **END**.
+10. Streamlit displays the final report with stats and a download button.
 
 ## 5. Key Design Decisions
 
-- **Deterministic routing first, LLM fallback second**: The Supervisor uses hardcoded rules (lines 122–170 in `agents.py`) before ever calling the LLM. This prevents the workflow from getting stuck due to LLM parsing failures.
+- **Deterministic routing first, LLM fallback second**: The Supervisor uses hardcoded rules before ever calling the LLM. Prevents the workflow from getting stuck due to LLM parsing failures.
+- **Single HITL gate at the research boundary**: Only one human checkpoint exists — after research, before writing. This is the highest-leverage intervention point. Bad source material contaminates the entire report; everything downstream (writing, critique, revision) can't fix it. One early review costs ~10 seconds and prevents wasted cycles.
+- **No HITL after writing/critique**: The critiquer prompt is now designed to approve at 80% quality and cap feedback at 3 concrete items. This makes the LLM-to-LLM revision loop reliable enough to run without human intervention.
 - **Dual LLM support**: Users can switch between Groq (cloud) and Ollama (local) at runtime via the sidebar. The `_get_llm()` factory handles instantiation.
 - **Append-only research**: `research_findings` uses `Annotated[List[str], operator.add]` so findings accumulate across research cycles rather than being overwritten.
 - **Revision cap**: Hard limit of 3 revisions prevents infinite critique loops.

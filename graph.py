@@ -2,6 +2,7 @@
 
 from typing import TypedDict, Annotated, List
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 import operator
 from agents import (
     create_supervisor_chain,
@@ -24,6 +25,8 @@ class ResearchState(TypedDict):
     llm_provider: str
     llm_model: str
     ollama_url: str
+    hitl_approved: bool
+    hitl_edited_findings: str
 
 # --- 2. Initialize Chains and Agents ---
 
@@ -77,6 +80,12 @@ def research_node(state: ResearchState) -> dict:
         "research_findings": [findings]
     }
 
+def human_review_node(state: ResearchState) -> dict:
+    """Pause node for Human-in-the-Loop review of research findings."""
+    print("\n=== HUMAN REVIEW ===")
+    print("Graph paused. Waiting for user input via Streamlit...")
+    return {}
+
 def write_node(state: ResearchState) -> dict:
     """Writer node that creates or revises draft."""
     print("\n=== WRITER ===")
@@ -121,6 +130,7 @@ def build_graph():
     # Add nodes
     workflow.add_node("supervisor", supervisor_node)
     workflow.add_node("researcher", research_node)
+    workflow.add_node("human_review", human_review_node)
     workflow.add_node("writer", write_node)
     workflow.add_node("critiquer", critique_node)
     
@@ -128,9 +138,19 @@ def build_graph():
     workflow.set_entry_point("supervisor")
     
     # Add edges
-    workflow.add_edge("researcher", "supervisor")
+    workflow.add_edge("researcher", "human_review")
     workflow.add_edge("writer", "critiquer")
     workflow.add_edge("critiquer", "supervisor")
+    
+    # Add conditional edges from human_review
+    workflow.add_conditional_edges(
+        "human_review",
+        lambda state: state.get("next_step", "supervisor"),
+        {
+            "supervisor": "supervisor",
+            "researcher": "researcher"
+        }
+    )
     
     # Add conditional edges from supervisor
     workflow.add_conditional_edges(
@@ -143,8 +163,12 @@ def build_graph():
         }
     )
     
-    # Compile the graph
-    app = workflow.compile()
+    # Compile the graph with MemorySaver and interrupt_before
+    memory = MemorySaver()
+    app = workflow.compile(
+        checkpointer=memory,
+        interrupt_before=["human_review"]
+    )
     return app
 
 # Create the compiled graph

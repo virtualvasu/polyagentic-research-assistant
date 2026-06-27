@@ -107,6 +107,20 @@ if not check_api_keys(llm_provider.lower()):
     st.stop()
 
 # --- Main Application ---
+import uuid
+
+
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = str(uuid.uuid4())
+if "run_status" not in st.session_state:
+    st.session_state.run_status = "idle"
+if "all_states" not in st.session_state:
+    st.session_state.all_states = []
+if "final_state" not in st.session_state:
+    st.session_state.final_state = None
+if "step_count" not in st.session_state:
+    st.session_state.step_count = 0
+
 st.header("Start Your Research")
 
 # User input
@@ -116,12 +130,89 @@ topic = st.text_input(
     key="topic_input"
 )
 
-# Start button
-if st.button("Start Research", type="primary", use_container_width=True):
+if st.button("Start / Restart Research", type="primary"):
     if not topic:
         st.error("Please enter a research topic.")
     else:
-        # Define the initial state
+        st.session_state.thread_id = str(uuid.uuid4())
+        st.session_state.run_status = "running"
+        st.session_state.all_states = []
+        st.session_state.final_state = None
+        st.session_state.step_count = 0
+        st.rerun()
+
+config = {"configurable": {"thread_id": st.session_state.thread_id}, "recursion_limit": max_iterations}
+
+def process_stream(stream_obj):
+    progress_bar = st.progress(0)
+    progress_container = st.container()
+    
+    with progress_container:
+        st.subheader("Agent Activity Log")
+        
+        for step in stream_obj:
+            st.session_state.step_count += 1
+            progress_bar.progress(min(st.session_state.step_count / max_iterations, 1.0))
+            
+            node_name = list(step.keys())[0]
+            node_output = step[node_name]
+            
+            st.session_state.all_states.append((node_name, node_output))
+            st.session_state.final_state = node_output
+            
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"### Agent: `{node_name.upper()}`")
+                with col2:
+                    st.caption(f"Step {st.session_state.step_count}")
+                
+                if node_name == "supervisor":
+                    st.markdown(f"**Decision:** {node_output.get('next_step', 'N/A')}")
+                    st.markdown(f"**Task:** {node_output.get('current_sub_task', 'N/A')}")
+                elif node_name == "researcher":
+                    findings = node_output.get('research_findings', [])
+                    if findings:
+                        st.success("Research completed")
+                        latest = findings[-1]
+                        with st.expander(f"Show Full Research (Step {st.session_state.step_count})"):
+                            st.markdown(latest)
+                elif node_name == "writer":
+                    draft = node_output.get('draft', '')
+                    st.success(f"Draft {node_output.get('revision_number', 0)} generated ({len(draft)} chars)")
+                    with st.expander(f"Show Full Draft (Step {st.session_state.step_count})"):
+                        st.markdown(draft)
+                elif node_name == "critiquer":
+                    critique = node_output.get('critique_notes', '')
+                    if "APPROVED" in critique.upper():
+                        st.success("Draft APPROVED!")
+                    else:
+                        st.warning("Revisions requested")
+                    with st.expander(f"Show Full Critique (Step {st.session_state.step_count})"):
+                        st.markdown(critique)
+                elif node_name == "human_review":
+                    st.info("Human review required.")
+                
+                st.divider()
+            time.sleep(0.3)
+            
+    # After stream finishes, check if it's paused
+    state = app.get_state(config)
+    if state.next and "human_review" in state.next:
+        st.session_state.run_status = "paused_at_review"
+        st.rerun()
+    elif not state.next:
+        st.session_state.run_status = "completed"
+        progress_bar.progress(1.0)
+        st.rerun()
+
+# --- Execution Flow ---
+
+if st.session_state.run_status == "running":
+    st.info("Agents are working...")
+    
+    # If starting fresh
+    if st.session_state.step_count == 0:
         initial_state = {
             "main_task": topic,
             "research_findings": [],
@@ -132,204 +223,88 @@ if st.button("Start Research", type="primary", use_container_width=True):
             "current_sub_task": "",
             "llm_provider": llm_provider.lower(),
             "llm_model": llm_model,
-            "ollama_url": ollama_url
+            "ollama_url": ollama_url,
+            "hitl_approved": False,
+            "hitl_edited_findings": ""
         }
+        stream_obj = app.stream(initial_state, config=config)
+    else:
+        # Resuming from a state
+        stream_obj = app.stream(None, config=config)
         
-        # Configuration
-        config = {"recursion_limit": max_iterations}
-        
-        st.info("Agents are starting their work...")
-        
-        # Create containers for live updates
-        progress_bar = st.progress(0)
-        status_placeholder = st.empty()
-        
-        # Container for step-by-step progress
-        progress_container = st.container()
-        
-        final_state = None
-        step_count = 0
-        all_states = []  # Keep track of all states
-        
-        try:
-            # Stream the graph execution
-            with progress_container:
-                st.subheader("Agent Activity Log")
-                
-                for step in app.stream(initial_state, config=config):
-                    step_count += 1
-                    progress_bar.progress(min(step_count / max_iterations, 1.0))
-                    
-                    # Get node name and output
-                    node_name = list(step.keys())[0]
-                    node_output = step[node_name]
-                    
-                    # Store the complete state
-                    all_states.append((node_name, node_output))
-                    final_state = node_output  # Keep updating final state
-                    
-                    # Display node output with expandable previews
-                    with st.container():
-                        col1, col2 = st.columns([3, 1])
-                        
-                        with col1:
-                            st.markdown(f"### Agent: `{node_name.upper()}`")
-                        
-                        with col2:
-                            st.caption(f"Step {step_count}")
-                        
-                        if node_name == "supervisor":
-                            next_step = node_output.get('next_step', 'N/A')
-                            task = node_output.get('current_sub_task', 'N/A')
-                            st.markdown(f"**Decision:** {next_step}")
-                            st.markdown(f"**Task:** {task}")
-                        
-                        elif node_name == "researcher":
-                            findings = node_output.get('research_findings', [])
-                            if findings:
-                                latest = findings[-1]
-                                st.success("Research completed")
-                                
-                                # Preview with "Show More" button
-                                preview_length = 300
-                                if len(latest) > preview_length:
-                                    st.markdown("**Research Preview:**")
-                                    st.info(latest[:preview_length] + "...")
-                                    
-                                    # Unique key for each expander
-                                    with st.expander(f"Show Full Research (Step {step_count})"):
-                                        st.markdown(latest)
-                                else:
-                                    st.markdown("**Research:**")
-                                    st.info(latest)
-                        
-                        elif node_name == "writer":
-                            draft = node_output.get('draft', '')
-                            revision = node_output.get('revision_number', 0)
-                            st.success(f"Draft {revision} generated ({len(draft)} chars)")
-                            
-                            # Preview with "Show More" button
-                            preview_length = 400
-                            if len(draft) > preview_length:
-                                st.markdown("**Draft Preview:**")
-                                st.info(draft[:preview_length] + "...")
-                                
-                                # Unique key for each expander
-                                with st.expander(f"Show Full Draft (Step {step_count})"):
-                                    st.markdown(draft)
-                            else:
-                                st.markdown("**Draft:**")
-                                st.info(draft)
-                        
-                        elif node_name == "critiquer":
-                            critique = node_output.get('critique_notes', '')
-                            if "APPROVED" in critique.upper():
-                                st.success("Draft APPROVED!")
-                            else:
-                                st.warning("Revisions requested")
-                            
-                            # Preview with "Show More" button
-                            preview_length = 300
-                            if len(critique) > preview_length:
-                                st.markdown("**Critique Preview:**")
-                                st.info(critique[:preview_length] + "...")
-                                
-                                # Unique key for each expander
-                                with st.expander(f"Show Full Critique (Step {step_count})"):
-                                    st.markdown(critique)
-                            else:
-                                st.markdown("**Critique:**")
-                                st.info(critique)
-                        
-                        st.divider()
-                    
-                    time.sleep(0.3)
+    try:
+        process_stream(stream_obj)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.session_state.run_status = "error"
+
+elif st.session_state.run_status == "paused_at_review":
+    st.warning("⏸️ Workflow Paused: Research Review Gate")
+    st.markdown("Please review the findings before the Writer drafts the report.")
+    
+    # Get current state
+    current_state = app.get_state(config).values
+    findings = current_state.get("research_findings", [])
+    latest_findings = findings[-1] if findings else "No findings available."
+    
+    edited_text = st.text_area("Research Findings (Edit if necessary):", value=latest_findings, height=300)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Proceed to Writer", type="primary", use_container_width=True):
+            app.update_state(config, {"hitl_edited_findings": edited_text, "hitl_approved": True, "next_step": "supervisor"}, as_node="human_review")
+            st.session_state.run_status = "running"
+            st.rerun()
             
-            # Update status when done
-            status_placeholder.success("Research Complete!")
-            progress_bar.progress(1.0)
-            
-            # Debug: Print final state info
-            print(f"Final state type: {type(final_state)}")
-            print(f"Final state keys: {final_state.keys() if isinstance(final_state, dict) else 'Not a dict'}")
-            print(f"Draft exists: {bool(final_state.get('draft') if isinstance(final_state, dict) else False)}")
-            print(f"Draft length: {len(final_state.get('draft', '')) if isinstance(final_state, dict) else 0}")
-            
-        except Exception as e:
-            status_placeholder.error("Error occurred")
-            st.error(f"An error occurred: {str(e)}")
-            st.exception(e)
-            final_state = None
+    with col2:
+        new_query = st.text_input("New query for Re-search:")
+        if st.button("Re-search", use_container_width=True):
+            if new_query:
+                app.update_state(config, {"current_sub_task": new_query, "next_step": "researcher"}, as_node="human_review")
+                st.session_state.run_status = "running"
+                st.rerun()
+            else:
+                st.error("Please enter a query to re-search.")
+
+elif st.session_state.run_status == "completed":
+    st.success("Research Complete!")
+    
+    st.divider()
+    
+    final_state = app.get_state(config).values
+    final_draft = final_state.get("draft", "")
+                    
+    if final_draft and len(final_draft.strip()) > 50:
+        st.header("Final Research Report")
         
-        # Display final report - IMPROVED LOGIC
+        with st.container():
+            st.markdown(final_draft)
+        
         st.divider()
         
-        # Try to get the draft from final_state
-        final_draft = None
-        if final_state and isinstance(final_state, dict):
-            final_draft = final_state.get("draft", "")
-        
-        # If no draft in final_state, search through all states
-        if not final_draft or len(final_draft.strip()) < 50:
-            print("Searching for draft in all states...")
-            for node_name, state in reversed(all_states):
-                if isinstance(state, dict) and state.get("draft"):
-                    draft_candidate = state.get("draft", "")
-                    if len(draft_candidate.strip()) > 50:
-                        final_draft = draft_candidate
-                        final_state = state
-                        print(f"Found draft in {node_name} state")
-                        break
-        
-        if final_draft and len(final_draft.strip()) > 50:
-            st.header("Final Research Report")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Report Statistics")
+            st.metric("Revisions", final_state.get("revision_number", 0) if isinstance(final_state, dict) else 0)
+            st.metric("Word Count", len(final_draft.split()))
             
-            # Display report in a nice container
-            with st.container():
-                st.markdown(final_draft)
-            
-            st.divider()
-            
-            # Display metadata
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Report Statistics")
-                revision_count = final_state.get("revision_number", 0) if isinstance(final_state, dict) else 0
-                research_count = len(final_state.get("research_findings", [])) if isinstance(final_state, dict) else 0
-                word_count = len(final_draft.split())
-                
-                st.metric("Revisions", revision_count)
-                st.metric("Research Sources", research_count)
-                st.metric("Word Count", word_count)
-                st.metric("Character Count", len(final_draft))
-            
-            with col2:
-                st.subheader("Research Findings")
-                if isinstance(final_state, dict) and final_state.get("research_findings"):
-                    # Use expander here (safe, outside of workflow)
-                    with st.expander("View all research data", expanded=False):
-                        for idx, finding in enumerate(final_state.get("research_findings", []), 1):
-                            st.markdown(f"**Finding {idx}:**")
-                            st.write(finding)
-                            if idx < len(final_state.get("research_findings", [])):
-                                st.divider()
-                else:
-                    st.info("No research findings available")
-            
-            # Download button
-            st.download_button(
-                label="Download Report",
-                data=final_draft,
-                file_name=f"research_report_{topic.replace(' ', '_')}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        else:
-            st.error("No report was generated. Please try again.")
-            if final_state:
-                with st.expander("Debug: View Final State"):
-                    st.json(final_state if isinstance(final_state, dict) else {"error": "State is not a dictionary"})
+        with col2:
+            st.subheader("Research Findings")
+            if isinstance(final_state, dict) and final_state.get("research_findings"):
+                with st.expander("View all research data"):
+                    for idx, finding in enumerate(final_state.get("research_findings", []), 1):
+                        st.markdown(f"**Finding {idx}:**")
+                        st.write(finding)
+                        
+        st.download_button(
+            label="Download Report",
+            data=final_draft,
+            file_name=f"research_report.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    else:
+        st.error("No report was generated. Please try again.")
 
 # Footer
 st.divider()
