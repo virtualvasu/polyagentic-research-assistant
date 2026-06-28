@@ -17,6 +17,7 @@
 
 *Four specialized agents. One human checkpoint. Zero garbage output.*
 
+
 </div>
 
 ---
@@ -37,39 +38,38 @@ The critical design choice: a **Human-in-the-Loop gate** sits at the research bo
 
 ```mermaid
 flowchart TD
-    START(["🚀 User Input\n(Research Topic)"]) --> SV
+    START(["User Input"]) --> SV
+    SV["Supervisor\nRouter"]
 
-    SV["🧭 Supervisor\nDeterministic Router"]
-
-    SV -->|"No research yet"| RS
-    RS["🔍 Researcher\nTavily Search + LLM Summarisation"]
+    SV -->|no research| RS
+    RS["Researcher\nTavily + LLM"]
 
     RS --> HR
+    HR{{"HITL Review Gate\nYou review findings"}}
 
-    HR{{"⏸ HITL Review Gate\n[ YOU ARE HERE ]"}}
-    HR -->|"Approve as-is"| SV
-    HR -->|"Edit findings\nthen approve"| SV
-    HR -->|"Re-search with\nnew query"| RS
+    HR -->|approve| SV
+    HR -->|edit + approve| SV
+    HR -->|re-search| RS
 
-    SV -->|"Research confirmed\nno draft yet"| WR
-    WR["✍ Writer\nStructured Report Draft\n400–600 words"]
+    SV -->|write draft| WR
+    WR["Writer\nStructured Draft"]
 
     WR --> CR
-    CR["🔬 Critiquer\nSenior Editor\nmax 3 concrete fixes"]
+    CR["Critiquer\nQuality Check"]
 
-    CR -->|"APPROVED ✓"| END
-    CR -->|"Revisions needed"| SV
-    SV -->|"revision ≥ 3\nor approved"| END
+    CR -->|approved| END
+    CR -->|revisions| SV
+    SV -->|max revisions| END
 
-    END(["📄 Final Report\nKey Takeaway · Findings\nAnalysis · Bottom Line"])
+    END(["Final Report"])
 
-    style START fill:#1a1a1a,color:#ffffff,stroke:#ff4b4b,stroke-width:2px
-    style END fill:#1a1a1a,color:#ffffff,stroke:#22c55e,stroke-width:2px
-    style HR fill:#ff4b4b,color:#ffffff,stroke:#ff4b4b,stroke-width:2px
-    style SV fill:#2d2d2d,color:#ffffff,stroke:#6366f1,stroke-width:2px
-    style RS fill:#2d2d2d,color:#ffffff,stroke:#3b82f6,stroke-width:2px
-    style WR fill:#2d2d2d,color:#ffffff,stroke:#f59e0b,stroke-width:2px
-    style CR fill:#2d2d2d,color:#ffffff,stroke:#8b5cf6,stroke-width:2px
+    style START fill:#1a1a1a,color:#fff,stroke:#ff4b4b,stroke-width:2px
+    style END   fill:#1a1a1a,color:#fff,stroke:#22c55e,stroke-width:2px
+    style HR    fill:#ff4b4b,color:#fff,stroke:#ff4b4b,stroke-width:2px
+    style SV    fill:#2d2d2d,color:#fff,stroke:#6366f1,stroke-width:2px
+    style RS    fill:#2d2d2d,color:#fff,stroke:#3b82f6,stroke-width:2px
+    style WR    fill:#2d2d2d,color:#fff,stroke:#f59e0b,stroke-width:2px
+    style CR    fill:#2d2d2d,color:#fff,stroke:#8b5cf6,stroke-width:2px
 ```
 
 ---
@@ -77,61 +77,28 @@ flowchart TD
 ### Execution Sequence
 
 ```mermaid
-sequenceDiagram
-    actor User
-    participant SV as Supervisor
-    participant RS as Researcher
-    participant TL as Tavily Search
-    participant HR as HITL Gate
-    participant WR as Writer
-    participant CR as Critiquer
+flowchart LR
+    S1["01  Enter topic"] --> S2
+    S2["02  Supervisor routes"] --> S3
+    S3["03  Researcher\nqueries Tavily"] --> S4
+    S4["04  LLM distills\n5 sourced bullets"] --> S5
+    S5{{"05  You review\nedit or approve"}} --> S6
+    S6["06  Supervisor routes"] --> S7
+    S7["07  Writer drafts\nstructured report"] --> S8
+    S8["08  Critiquer\nevaluates quality"] --> S9
+    S9["09  Final Report"]
 
-    User->>SV: Enter research topic
-    activate SV
-    SV->>RS: Route → researcher (no findings yet)
-    deactivate SV
+    S8 -->|"revisions"| S6
 
-    activate RS
-    RS->>TL: Query web (top 5 results)
-    TL-->>RS: Raw search results
-    RS->>RS: LLM distills → 5 sourced bullet points
-    RS-->>HR: Research findings
-    deactivate RS
-
-    Note over HR: ⏸ Graph pauses here
-    HR-->>User: Show findings for review
-    alt Approve as-is
-        User->>HR: Approve
-    else Edit then approve
-        User->>HR: Edit findings + Approve
-    else Re-search
-        User->>HR: New query → RS repeats
-    end
-
-    HR->>SV: Resume with confirmed findings
-    activate SV
-    SV->>WR: Route → writer
-    deactivate SV
-
-    loop Up to 3 revision cycles
-        activate WR
-        WR->>WR: Draft structured report
-        WR-->>CR: Draft v{n}
-        deactivate WR
-
-        activate CR
-        CR->>CR: Evaluate 4 quality criteria
-        alt APPROVED
-            CR-->>SV: APPROVED signal
-        else Revisions needed
-            CR-->>SV: ≤3 concrete fix instructions
-        end
-        deactivate CR
-
-        SV->>WR: Revise based on critique
-    end
-
-    SV-->>User: Final Report
+    style S5 fill:#ff4b4b,color:#fff,stroke:#ff4b4b
+    style S9 fill:#1a1a1a,color:#fff,stroke:#22c55e,stroke-width:2px
+    style S1 fill:#2d2d2d,color:#fff,stroke:#555
+    style S2 fill:#2d2d2d,color:#fff,stroke:#6366f1
+    style S3 fill:#2d2d2d,color:#fff,stroke:#3b82f6
+    style S4 fill:#2d2d2d,color:#fff,stroke:#3b82f6
+    style S6 fill:#2d2d2d,color:#fff,stroke:#6366f1
+    style S7 fill:#2d2d2d,color:#fff,stroke:#f59e0b
+    style S8 fill:#2d2d2d,color:#fff,stroke:#8b5cf6
 ```
 
 ---
