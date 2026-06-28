@@ -1,153 +1,188 @@
-# Multi-Agent Research Assistant
+# Polyagentic Research Assistant
 
-A collaborative **Agent-to-Agent (A2A)** system built using **LangChain** and **LangGraph**, designed to generate detailed and well-structured research reports through intelligent agent cooperation.  
+A **stateful multi-agent system** that takes a research topic and produces a structured, sourced report — autonomously. Four specialized AI agents collaborate in a supervised loop, with a **Human-in-the-Loop checkpoint** at the research boundary so you control what goes into the report before writing begins.
 
-![LangGraph Architecture](assets/research_graph.png)  
-*System architecture built with LangGraph illustrating multi-agent collaboration.*
+> Built with LangGraph · LangChain · Groq · Ollama · Tavily · Streamlit
 
-##  Project Structure
+---
+
+## How it works
+
+```
+User Input
+    │
+    ▼
+┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
+│  Supervisor │────►│  Researcher  │────►│  [ YOU REVIEW ]  │
+│  (router)   │     │  web search  │     │  edit / approve  │
+└──────┬──────┘     └──────────────┘     └────────┬─────────┘
+       │                                           │
+       │◄──────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────┐     ┌──────────────┐
+│   Writer    │────►│  Critiquer   │──► loop (max 3 revisions) ──► Final Report
+│  (drafter)  │     │  (editor)    │
+└─────────────┘     └──────────────┘
+```
+
+### The 5 agents
+
+| Agent | Role |
+|-------|------|
+| **Supervisor** | Deterministic router — decides who acts next based on workflow state. Falls back to LLM only when logic is ambiguous. |
+| **Researcher** | Queries Tavily Search, then uses the LLM to distill results into 5 sourced bullet points. |
+| **[HITL] Review Gate** | Pauses the graph. You see the findings, edit them, or trigger a re-search before any writing happens. |
+| **Writer** | Synthesizes confirmed findings into a 400–600 word structured report (`Key Takeaway → Findings → Analysis → Bottom Line`). Revises on critique. |
+| **Critiquer** | Senior editor — checks source fidelity, structure, and substance. Approves at 80% quality. Returns max 3 concrete, actionable fixes. |
+
+---
+
+## Key design decisions
+
+**Deterministic routing first, LLM fallback second** — The Supervisor uses hardcoded state-based rules before ever calling the LLM. This prevents the workflow from getting stuck on JSON parsing failures or hallucinated route decisions.
+
+**Single HITL gate at the research boundary** — There is exactly one human checkpoint: after research, before writing. This is the highest-leverage intervention point. Bad source material contaminates every downstream step; one 10-second review prevents wasted revision cycles.
+
+**Append-only research findings** — `research_findings` uses `Annotated[List[str], operator.add]`, so findings accumulate across multiple research cycles rather than being overwritten. Re-searching adds to the pool.
+
+**Hard revision cap** — Maximum 3 critique → writer cycles. The Critiquer prompt is designed to approve at 80% quality, making the automated loop reliable enough to run without further human intervention.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Orchestration | [LangGraph](https://langchain-ai.github.io/langgraph/) — `StateGraph` with `MemorySaver` checkpointing |
+| LLM Framework | [LangChain](https://python.langchain.com/) |
+| Cloud LLM | [Groq](https://groq.com/) — `llama-3.3-70b-versatile`, `mixtral-8x7b`, `gemma2-9b` |
+| Local LLM | [Ollama](https://ollama.com/) — any locally pulled model |
+| Web Search | [Tavily Search API](https://tavily.com/) |
+| Frontend | [Streamlit](https://streamlit.io/) with custom Brutalist CSS design system |
+| Package Management | [uv](https://docs.astral.sh/uv/) |
+| Testing | pytest |
+
+---
+
+## Project structure
 
 ```
 polyagentic-research-assistant/
-├── assets/
-│   └── (graph visualizations saved here)
-├── .env
-├── requirements.txt
-├── prompts.py
-├── agents.py
-├── graph.py
-├── visualize_graph.py
-├── app.py
-└── README.md
+├── app.py                  # Streamlit entry point — state machine runner
+├── graph.py                # LangGraph StateGraph — nodes, edges, compilation
+├── agents.py               # Agent factory functions + dynamic LLM provider
+├── prompts.py              # All prompt templates (supervisor, writer, critiquer)
+├── ui/
+│   ├── style.py            # Brutalist CSS design system (injected via st.markdown)
+│   ├── sidebar.py          # Sidebar config — provider, model, iterations
+│   ├── state.py            # Session state init + API key validation
+│   └── stream_handler.py   # Live agent activity log + pipeline header renderer
+├── tests/
+│   ├── test_agents.py      # Unit tests for agent chains and LLM factory
+│   └── test_graph.py       # Unit tests for graph routing logic
+├── docs/
+│   ├── high_level_design.md
+│   └── low_level_design.md
+├── .env.example
+└── requirements.txt
 ```
 
-##  Installation
+---
+
+## Setup
 
 ### Prerequisites
+- Python 3.10+
+- A [Groq API key](https://console.groq.com/) (free)
+- A [Tavily API key](https://tavily.com/) (free tier available)
+- (Optional) [Ollama](https://ollama.com/) running locally for local inference
 
-- Python 3.9 or higher
-- pip package manager
-- (Optional) Graphviz for graph visualization
-
-### Step 1: Clone or Create Project Directory
+### Install
 
 ```bash
-mkdir polyagentic-research-assistant
+# Clone the repo
+git clone https://github.com/virtualvasu/polyagentic-research-assistant.git
 cd polyagentic-research-assistant
-```
 
-### Step 2: Install Python Dependencies
+# Install dependencies (recommended: uv)
+pip install uv
+uv pip install -r requirements.txt
 
-```bash
+# Or with standard pip
 pip install -r requirements.txt
 ```
 
-### Step 3: Configure Environment Variables
-
-Create a `.env` file in the root directory:
+### Configure environment
 
 ```bash
-# Get API key from https://console.groq.com/
-GROQ_API_KEY=your_groq_api_key_here
-
-# Get API key from https://tavily.com/
-TAVILY_API_KEY=your_tavily_api_key_here
+cp .env.example .env
 ```
 
-**Getting API Keys:**
+Edit `.env`:
+```env
+GROQ_API_KEY=your_groq_key_here
+TAVILY_API_KEY=your_tavily_key_here
 
-1. **Groq**: Sign up at [console.groq.com](https://console.groq.com/) and create an API key
-2. **Tavily**: Sign up at [tavily.com](https://tavily.com/) and get your API key
-
-### Step 4: (Optional) Install Graphviz for Visualization
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install graphviz graphviz-dev
+# Optional — for Ollama local models
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODELS=llama3.1:latest,llama3.1:8b,qwen2.5:7b
 ```
 
-**macOS:**
-```bash
-brew install graphviz
-```
-
-**Windows:**
-```bash
-choco install graphviz
-
-```
-
-## 🎯 Usage
-
-### Generate Workflow Visualization (Optional)
-
-```bash
-python visualize_graph.py
-```
-
-This creates a visual diagram of the agent workflow in `assets/research_graph.png`
-
-### Run the Streamlit Application
+### Run
 
 ```bash
 streamlit run app.py
 ```
 
-The app will open in your browser at `http://localhost:8501`
+Open [http://localhost:8501](http://localhost:8501).
 
-## 🤖 How It Works
+---
 
-The system uses four specialized AI agents that work together:
+## Using Ollama (local inference)
 
-1. ** Supervisor Agent**
-   - Coordinates the entire workflow
-   - Decides which agent should work next
-   - Manages task delegation
-
-2. ** Researcher Agent**
-   - Searches the web for relevant information
-   - Uses Tavily search API
-   - Gathers and compiles research findings
-
-3. ** Writer Agent**
-   - Creates research reports from findings
-   - Revises drafts based on feedback
-   - Ensures coherent and well-structured output
-
-4. ** Critiquer Agent**
-   - Reviews drafts for quality
-   - Provides actionable feedback
-   - Approves final reports
-
-### Workflow
-
-```
-Start → Supervisor → Researcher → Supervisor → Writer → Critiquer → Supervisor
-                ↑                                                        ↓
-                └────────────────── (loop until approved) ──────────────┘
-```
-
-##  Troubleshooting
-
-### Common Issues
-
-**1. Import Errors**
+Pull a model:
 ```bash
-# Reinstall all dependencies
-pip install -r requirements.txt --upgrade
+ollama pull llama3.1:latest
 ```
 
-**2. API Key Errors**
-- Verify your `.env` file is in the project root
-- Check that API keys are correct and active
-- Ensure no extra spaces in the `.env` file
+In the Streamlit sidebar, switch **LLM Provider** to `Ollama` and select your model. The Groq API key is not required in Ollama mode (Tavily key still is).
 
-**3. Groq Connection Issues**
-- The code uses Groq's API endpoint
-- Ensure your API key has sufficient credits or is active
-- Check network connectivity
+---
 
-**4. Graphviz Installation Issues**
-- Graphviz is optional for visualization
-- The app will work without it
-- If needed, follow
+## Running tests
+
+```bash
+pytest tests/ -v
+```
+
+---
+
+## Workflow walkthrough
+
+1. Enter a research topic (e.g., *"Impact of quantum computing on post-quantum cryptography"*)
+2. The **Supervisor** routes to the **Researcher**
+3. Researcher queries Tavily, LLM condenses results into 5 sourced bullet points
+4. **You are shown the findings** — you can approve, edit inline, or trigger a re-search with a new query
+5. After approval, **Supervisor** routes to **Writer**
+6. Writer produces a structured report: `Key Takeaway → Findings → Analysis → Bottom Line`
+7. **Critiquer** reviews — either approves or returns up to 3 concrete fixes
+8. Writer revises; loop repeats up to 3 times
+9. Final report is displayed with word count, revision count, and a download button
+
+---
+
+## Configuration reference
+
+| Sidebar Setting | Default | Description |
+|----------------|---------|-------------|
+| Max Iterations | 15 | LangGraph recursion limit — prevents infinite loops |
+| LLM Provider | Groq | Switch between Groq (cloud) and Ollama (local) |
+| Model Name | llama-3.3-70b-versatile | Model used for all agent chains |
+| Ollama Host URL | http://localhost:11434 | Only shown when Ollama is selected |
+
+---
+
+## License
+
+MIT
