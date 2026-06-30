@@ -173,6 +173,7 @@ def process_stream(stream_obj, app, config, max_iterations):
             st.info("Workflow paused — awaiting your review.")
 
         st.markdown("</div></div>", unsafe_allow_html=True)
+        st.toast(f"{node_name.replace('_', ' ').title()} finished processing.")
         time.sleep(0.2)
 
     # ── After stream ends ─────────────────────────────────────────────────

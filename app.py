@@ -45,58 +45,9 @@ init_session_state()
 # ── Helper: render the structured final report ────────────────────────────────
 def render_structured_report(report_text: str):
     """
-    Parses the markdown report (with ## headers) and renders each section
-    as a distinct styled block rather than a raw markdown dump.
+    Renders the markdown report directly.
     """
-    # Split on level-2 headers
-    import re
-    # Split keeping the section title
-    parts = re.split(r"(?m)^##\s+", report_text)
-
-    sections = []
-    # First part before any ## is preamble (usually empty)
-    for part in parts[1:]:
-        lines     = part.strip().split("\n", 1)
-        title     = lines[0].strip()
-        body      = lines[1].strip() if len(lines) > 1 else ""
-        sections.append((title, body))
-
-    if not sections:
-        # Fallback: just render raw markdown
-        st.markdown(report_text)
-        return
-
-    # Build the wrapper
-    st.markdown('<div class="report-wrapper">', unsafe_allow_html=True)
-
-    # Title bar
-    word_count = len(report_text.split())
-    st.markdown(f'<div class="report-title-bar"><span>FINAL RESEARCH REPORT</span><span style="font-family: Space Mono; font-size:0.7rem; color: rgba(255,255,255,0.6);">{word_count} WORDS</span></div>', unsafe_allow_html=True)
-
-    for title, body in sections:
-        title_upper = title.upper()
-
-        if "KEY TAKEAWAY" in title_upper or "TAKEAWAY" in title_upper:
-            st.markdown(f'<div class="report-key-takeaway"><span class="report-section-label">-- KEY TAKEAWAY</span>', unsafe_allow_html=True)
-            st.markdown(f'<p style="color:#ffffff; font-size:1.05rem;">{body}</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        elif "BOTTOM LINE" in title_upper or "CONCLUSION" in title_upper:
-            st.markdown(f'<div class="report-bottom-line"><span class="report-section-label">-- BOTTOM LINE</span>', unsafe_allow_html=True)
-            st.markdown(f'<p style="color:#ffffff;">{body}</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        elif "ANALYSIS" in title_upper:
-            st.markdown(f'<div class="report-section report-analysis"><span class="report-section-label">// {title.upper()}</span>', unsafe_allow_html=True)
-            st.markdown(body)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        else:
-            st.markdown(f'<div class="report-section"><span class="report-section-label">// {title.upper()}</span>', unsafe_allow_html=True)
-            st.markdown(body)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(report_text)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -257,32 +208,31 @@ elif st.session_state.run_status == "completed":
     st.divider()
 
     if final_draft and len(final_draft.strip()) > 50:
-        render_structured_report(final_draft)
+        tab1, tab2, tab3 = st.tabs(["Final Report", "Statistics", "Research Data"])
+        
+        with tab1:
+            render_structured_report(final_draft)
+            st.download_button(
+                label="DOWNLOAD REPORT (.txt)",
+                data=final_draft,
+                file_name="research_report.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
 
-        st.divider()
-
-        col1, col2 = st.columns(2)
-        with col1:
+        with tab2:
             st.subheader("Report Statistics")
             rev_num = final_state.get("revision_number", 0) if isinstance(final_state, dict) else 0
             st.metric("Revisions", rev_num)
             st.metric("Word Count", len(final_draft.split()))
 
-        with col2:
+        with tab3:
             st.subheader("Source Findings")
             if isinstance(final_state, dict) and final_state.get("research_findings"):
-                with st.expander("View All Research Data"):
-                    for idx, finding in enumerate(final_state.get("research_findings", []), 1):
-                        st.markdown(f"**Finding {idx}:**")
-                        st.write(finding)
+                for idx, finding in enumerate(final_state.get("research_findings", []), 1):
+                    st.markdown(f"**Finding {idx}:**")
+                    st.markdown(finding)
 
-        st.download_button(
-            label="DOWNLOAD REPORT (.txt)",
-            data=final_draft,
-            file_name="research_report.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
     else:
         st.error("No report was generated. Please try again.")
 

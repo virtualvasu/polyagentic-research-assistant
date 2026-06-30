@@ -19,7 +19,7 @@ def render_sidebar():
         llm_provider = st.selectbox(
             "LLM Provider",
             options=["Groq", "Ollama"],
-            index=0,
+            index=1,
             help="Choose the LLM backend to run the agents"
         )
         

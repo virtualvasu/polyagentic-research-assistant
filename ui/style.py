@@ -7,17 +7,17 @@ def apply_brutalist_theme():
 
 /* Brutalist Theme Colors & Variables */
 :root {
-    --bg-color: #d6d6d6;
-    --text-color: #111111;
-    --accent-color: #ff3c00;
-    --border-color: #111111;
-    --border-width: 4px;
-    --shadow-offset: 6px;
-    --agent-supervisor: #1a1a2e;
-    --agent-researcher: #16213e;
-    --agent-writer: #0f3460;
-    --agent-critiquer: #533483;
-    --agent-human: #ff3c00;
+    --bg-color: #f4f5f7;
+    --text-color: #1e293b;
+    --accent-color: #2563eb;
+    --border-color: #94a3b8;
+    --border-width: 2px;
+    --shadow-offset: 3px;
+    --agent-supervisor: #334155;
+    --agent-researcher: #0284c7;
+    --agent-writer: #059669;
+    --agent-critiquer: #7c3aed;
+    --agent-human: #d97706;
 }
 
 /* Global Font and Color Override */
@@ -33,15 +33,15 @@ html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #e8e8e8 !important;
+    background-color: #ffffff !important;
     border-right: var(--border-width) solid var(--border-color);
 }
 [data-testid="stSidebar"]::before {
     content: 'SYSTEM.CONFIG';
     font-family: 'Anton', sans-serif;
     font-size: 3rem;
-    color: var(--border-color);
-    opacity: 0.1;
+    color: var(--text-color);
+    opacity: 0.15;
     position: absolute;
     top: 10px;
     left: 10px;
@@ -50,32 +50,21 @@ html, body, p, span, div, label, li, [class*="css"], [class*="st-"] {
 
 /* Typography for Headers & Code */
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Anton', sans-serif !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-family: 'Space Mono', monospace !important;
     color: var(--text-color);
+    margin-bottom: 0.5rem !important;
+}
+
+h1 {
+    font-family: 'Anton', sans-serif !important;
+    font-size: 3.5rem !important;
+    color: var(--accent-color) !important;
+    text-transform: uppercase;
 }
 
 pre, code {
     background-color: #111111 !important;
     color: #ffffff !important;
-}
-
-h1 {
-    font-size: 4.5rem !important;
-    color: var(--accent-color);
-    text-shadow: 5px 5px 0px var(--border-color);
-    margin-bottom: 0.5rem !important;
-    line-height: 1.1 !important;
-}
-
-h2 {
-    font-size: 2.5rem !important;
-    background-color: var(--border-color) !important;
-    color: #ffffff !important;
-    display: inline-block;
-    padding: 0 10px;
-    box-shadow: 4px 4px 0px var(--accent-color);
 }
 
 /* Dividers */
@@ -162,13 +151,16 @@ div[data-testid="metric-container"] {
 }
 
 /* Toast/Alert Boxes */
-div[data-testid="stAlert"] {
+div[data-testid="stAlert"], div[data-testid="stToast"] {
     background-color: #ffffff !important;
     color: var(--text-color) !important;
     border: var(--border-width) solid var(--border-color) !important;
     border-radius: 0 !important;
     box-shadow: 4px 4px 0px var(--border-color) !important;
     font-weight: bold;
+}
+div[data-testid="stToast"] * {
+    color: var(--text-color) !important;
 }
 
 /* ============================================
@@ -221,11 +213,11 @@ div[data-testid="stAlert"] {
 .pipeline-step.done .step-label,
 .pipeline-step.done .step-status,
 .pipeline-step.done .step-icon {
-    color: #ffffff !important;
+    color: var(--text-color) !important;
 }
 .pipeline-step.active {
     background-color: var(--accent-color);
-    animation: pulse-bg 1.5s ease-in-out infinite;
+    animation: pulse-bg 2s ease-in-out infinite;
 }
 .pipeline-step.active .step-label,
 .pipeline-step.active .step-status,
@@ -234,7 +226,7 @@ div[data-testid="stAlert"] {
 }
 @keyframes pulse-bg {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.82; }
+    50% { background-color: #3b82f6; opacity: 0.9; }
 }
 
 /* ============================================
@@ -243,9 +235,14 @@ div[data-testid="stAlert"] {
 .agent-card {
     background: #ffffff;
     border: var(--border-width) solid var(--border-color);
-    box-shadow: 4px 4px 0px var(--border-color);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
     margin-bottom: 1rem;
     overflow: hidden;
+    animation: fade-in-up 0.4s ease-out;
+}
+@keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .agent-card-header {
     display: flex;
