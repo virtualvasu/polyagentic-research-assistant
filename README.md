@@ -4,6 +4,15 @@
 
 **A stateful multi-agent AI system that transforms any research topic into a structured, sourced report — autonomously.**
 
+<br>
+
+<a href="https://huggingface.co/spaces/virtualvasu/multi-agent-research-assistant">
+  <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Try%20it%20Live%20on%20Hugging%20Face%20Spaces-FCD34D?style=for-the-badge" alt="Hugging Face Spaces" />
+</a>
+
+<br>
+<br>
+
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2.45-1C3C3C?style=flat-square&logo=chainlink&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-1C3C3C?style=flat-square&logo=chainlink&logoColor=white)](https://python.langchain.com/)
