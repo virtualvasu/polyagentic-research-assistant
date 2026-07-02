@@ -1,16 +1,3 @@
----
-title: Polyagentic Research Assistant
-emoji: 🚀
-colorFrom: blue
-colorTo: green
-sdk: streamlit
-sdk_version: 1.39.0
-app_file: app.py
-pinned: false
----
-
-<div align="center">
-
 # Polyagentic Research Assistant
 
 **A stateful multi-agent AI system that transforms any research topic into a structured, sourced report — autonomously.**
