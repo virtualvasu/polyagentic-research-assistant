@@ -1,3 +1,5 @@
+<div align="center">
+
 # Polyagentic Research Assistant
 
 **A stateful multi-agent AI system that transforms any research topic into a structured, sourced report — autonomously.**
