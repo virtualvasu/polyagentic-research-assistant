@@ -1,174 +1,74 @@
-# API Design - Polyagentic Research Assistant
+# API Design — Polyagentic Research Assistant
 
-> This project does not expose a REST/HTTP API. It runs as a local Streamlit application.
-> This document covers the **internal Python interfaces** — the public functions and data contracts between modules.
+Two API surfaces exist. The **FastAPI backend** is the real agent API — it's a standalone HTTP service any client could use, and its interactive docs are auto-generated at `/docs` (Swagger UI) and `/redoc`. The **Next.js Route Handlers** are a thin, Zod-validated proxy layer the browser actually talks to; they exist so the backend never faces the internet directly and so saved-report history (Prisma) has a natural home.
 
-## 1. Graph API (`graph.py`)
+## 1. FastAPI Backend (`backend/app/main.py`)
 
-### `app` (compiled LangGraph)
+Base URL: `http://127.0.0.1:8000` (internal-only in the combined Docker deployment).
 
-The primary entry point. A compiled `StateGraph` instance.
+### `GET /health`
 
-```python
-from graph import app
-
-# Execute the full workflow (streaming)
-for step in app.stream(initial_state, config=config):
-    node_name = list(step.keys())[0]
-    node_output = step[node_name]
+```json
+{ "tavily_configured": true, "groq_configured": true, "ollama_reachable": false }
 ```
 
-**Input — `initial_state`**:
+### `POST /api/research/stream`
 
-```python
-{
-    "main_task": str,              # Required. The research topic.
-    "research_findings": [],       # Required. Start empty.
-    "draft": "",                   # Required. Start empty.
-    "critique_notes": "",          # Required. Start empty.
-    "revision_number": 0,          # Required. Start at 0.
-    "next_step": "",               # Required. Start empty.
-    "current_sub_task": "",        # Required. Start empty.
-    "llm_provider": str,           # Required. "groq" or "ollama".
-    "llm_model": str,              # Required. Model name string.
-    "ollama_url": str,             # Optional. Ollama host URL.
-    # --- HITL fields (planned) ---
-    "hitl_approved": False,        # Set to True when user confirms research.
-    "hitl_edited_findings": "",    # User-edited findings text (Edit mode only).
-}
+Starts a new run and streams Server-Sent Events until the run pauses at the HITL gate or completes.
+
+**Request body** (`StartResearchRequest`):
+
+```json
+{ "topic": "Impact of quantum computing on cryptography", "llm_provider": "groq", "llm_model": "llama-3.3-70b-versatile" }
 ```
 
-**Config**:
+**Response**: `text/event-stream`. Event types:
 
-```python
-{"recursion_limit": int}  # Max number of graph steps (default: 15)
+| Event | Payload | Meaning |
+|-------|---------|---------|
+| `thread` | `{"thread_id": "..."}` | Emitted first — the ID needed for `/resume` and `/state` |
+| `step` | `{"node": "researcher", "output": {...state fields the node returned...}}` | One LangGraph node finished |
+| `node_error` | `{"node": "writer", "error": "..."}` | A node failed; the run is still resumable from its last good checkpoint |
+| `interrupt` | `{"payload": {"type": "research_review", "latest_finding": {...}}}` | Paused at the HITL gate, awaiting `/resume` |
+| `done` | `{"final_state": {...full ResearchState...}}` | Run reached `END` |
+
+### `POST /api/research/{thread_id}/resume`
+
+Sends the human's decision back into the paused graph and streams onward — same event shape as above.
+
+**Request body** (`ResumeAction`):
+
+```json
+{ "action": "approve", "edited_text": "...findings the user optionally edited..." }
 ```
 
-**Output (per stream step)**:
+or
 
-Each yielded `step` is a dict with a single key (the node name) mapping to that node's output dict.
-
-```python
-# Example stream outputs:
-{"supervisor":    {"next_step": "researcher", "current_sub_task": "..."}}
-{"researcher":    {"research_findings": ["..."]}}
-# --- Graph pauses here at human_review (planned) ---
-{"writer":        {"draft": "...", "revision_number": 1}}
-{"critiquer":     {"critique_notes": "APPROVED - ...", "next_step": "END"}}
+```json
+{ "action": "research", "query": "a refined search query" }
 ```
 
----
+### `GET /api/research/{thread_id}/state`
 
-### Planned: Two-Phase Execution with HITL Interrupt
+Returns the current checkpointed snapshot without advancing the graph — used for reload/recovery.
 
-When the Research Review Gate is implemented, `app.stream()` is replaced with a two-phase model:
-
-**Phase 1 — Stream until interrupt:**
-```python
-for step in app.stream(initial_state, config=config):
-    # Streams supervisor → researcher nodes
-    # Graph auto-pauses before human_review node
-    pass
+```json
+{ "values": {...ResearchState...}, "next": ["human_review"] }
 ```
 
-**Phase 2 — Render UI, collect user decision:**
-```python
-# Streamlit shows bullets + 3 buttons
-# User clicks one of: Proceed / Edit / Re-search
-user_command = Command(resume={"action": "proceed" | "edit" | "research",
-                               "edited_findings": str,   # if Edit
-                               "new_query": str})         # if Re-search
-```
+`next` is empty once the run has completed.
 
-**Phase 3 — Resume graph:**
-```python
-for step in app.stream(user_command, config=config):
-    # Continues from human_review → supervisor → writer → critiquer → END
-    pass
-```
+## 2. Next.js Route Handlers (`frontend/src/app/api/**`)
 
----
+All request/response bodies are validated with the Zod schemas in `frontend/src/lib/schemas.ts`, hand-kept in sync with the backend's Pydantic models (see the README for why this is hand-synced rather than generated across the language boundary).
 
-## 2. Agent Factory API (`agents.py`)
+| Route | Method | Behavior |
+|-------|--------|----------|
+| `/api/research/stream` | POST | Validates, forwards to FastAPI, pipes the SSE `ReadableStream` straight through |
+| `/api/research/[threadId]/resume` | POST | Same, for resume |
+| `/api/research/[threadId]/state` | GET | Forwards, returns JSON |
+| `/api/health` | GET | Forwards FastAPI's `/health`, adds a `reachable` flag (`false` if the backend can't be reached at all, rather than erroring) |
+| `/api/reports` | GET / POST | Lists / creates saved reports — talks to Prisma directly, no backend involvement |
+| `/api/reports/[id]` | GET / DELETE | Fetch / delete one saved report |
 
-### `create_supervisor_chain() → Callable[[ResearchState], dict]`
-
-Returns a function that takes the full state and returns a routing decision.
-
-```python
-# Return format:
-{"next_step": "researcher" | "writer" | "END", "task_description": str}
-```
-
----
-
-### `create_researcher_agent() → Callable[[dict], dict]`
-
-Returns a function that takes an input dict and returns research output.
-
-```python
-# Input:
-{"input": str, "llm_provider": str, "llm_model": str, "ollama_url": str}
-
-# Return:
-{"output": str, "input": str}
-```
-
----
-
-### `create_writer_chain() → Callable[[ResearchState], str]`
-
-Returns a function that takes the full state and returns the draft text as a string.
-
----
-
-### `create_critique_chain() → Callable[[ResearchState], str]`
-
-Returns a function that takes the full state and returns critique text.
-Contains `"APPROVED"` if the draft passes review.
-
----
-
-### `_get_llm(state_or_dict) → LLM instance`
-
-Dynamic LLM factory. Returns a `ChatGroq` or `ChatOllama` instance based on state config.
-
-```python
-# Falls back to default global Groq LLM if:
-#   - input is None / not a dict
-#   - llm_provider key is missing
-#   - instantiation fails
-```
-
----
-
-### `_call_llm(llm_obj, *args, **kwargs) → response`
-
-Compatibility adapter. Tries `invoke()` → `run()` → `__call__()` in order.
-
----
-
-## 3. Streamlit Interface (`app.py`)
-
-### Sidebar Controls
-
-| Control | Type | Values | Default |
-|---------|------|--------|---------|
-| Max Workflow Iterations | Slider | 5–25 | 15 |
-| LLM Provider | Selectbox | Groq, Ollama | Groq |
-| Model Name (Groq) | Selectbox | llama-3.3-70b-versatile, mixtral-8x7b-32768, gemma2-9b-it | llama-3.3-70b-versatile |
-| Model Name (Ollama) | Text Input | any string | llama3.3 |
-| Ollama Host URL | Text Input | any URL | http://localhost:11434 |
-
-### `check_api_keys(provider: str) → bool`
-
-Validates environment variables. Checks `TAVILY_API_KEY` always, checks `GROQ_API_KEY` only when `provider == "groq"`.
-
----
-
-## 4. Environment Variables
-
-| Variable | Required | Used By |
-|----------|----------|---------|
-| `TAVILY_API_KEY` | Always | Researcher agent (web search) |
-| `GROQ_API_KEY` | When provider = groq | All agents (LLM calls) |
+The streaming proxy routes (`stream`, `resume`) do no buffering — `new Response(backendRes.body, {...})` forwards the backend's `ReadableStream` byte-for-byte, so latency between an agent step finishing and the browser seeing it is the network hop, not batching.

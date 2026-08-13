@@ -131,3 +131,14 @@ Thumbs.db
 # Project context
 context/
 
+# Runtime data — SQLite DBs generated at run time, not source
+backend/data/
+*.db
+*.db-journal
+!frontend/prisma/migrations/**
+
+# Node / Next.js / Prisma
+node_modules/
+.next/
+frontend/src/generated/
+
