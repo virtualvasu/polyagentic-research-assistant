@@ -1,17 +1,57 @@
-FROM python:3.11-slim
+# Single-container build for Hugging Face Spaces: a Next.js frontend
+# (exposed) reverse-proxying, via its own server-side Route Handlers, to an
+# internal FastAPI + LangGraph backend. Two processes, one image, one port.
 
-# Set working directory
+# ---------- Frontend build ----------
+FROM node:20-bookworm-slim AS frontend-build
+WORKDIR /app/frontend
+
+# better-sqlite3 compiles a native addon at install time.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ .
+RUN npx prisma generate
+
+# Pre-apply migrations to a template DB baked into the image; start.sh
+# copies it to the runtime data dir on first boot (see below).
+RUN DATABASE_URL="file:./prisma/seed.db" npx prisma migrate deploy
+
+RUN npm run build
+
+# ---------- Final image ----------
+FROM python:3.11-slim AS final
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# --- Backend ---
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/app backend/app
 
-# Copy the rest of the application code
-COPY . .
+# --- Frontend (Next.js standalone output) ---
+COPY --from=frontend-build /app/frontend/.next/standalone ./frontend
+COPY --from=frontend-build /app/frontend/.next/static ./frontend/.next/static
+COPY --from=frontend-build /app/frontend/public ./frontend/public
+COPY --from=frontend-build /app/frontend/prisma/seed.db ./frontend/prisma/seed.db
 
-# Expose the port that Streamlit uses on Hugging Face (7860 is HF default)
+COPY docker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh && mkdir -p /data
+
+ENV BACKEND_URL=http://127.0.0.1:8000 \
+    FRONTEND_ORIGIN=http://127.0.0.1:7860 \
+    PYTHONUNBUFFERED=1 \
+    PORT=7860
+
+# Hugging Face Spaces' default exposed port
 EXPOSE 7860
 
-# Run the Streamlit app
-CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+CMD ["/app/start.sh"]

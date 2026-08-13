@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/data
+**/dev.db
+**/dev.db-journal
+**/.env
+**/.env.local
+frontend/prisma/migrations/**/*.db
+.git
+.github
+context
+docs
+*.md

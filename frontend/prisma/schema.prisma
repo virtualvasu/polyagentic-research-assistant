@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// A finished report the user chose to keep. Written once a research run
+// reaches "done" — separate from LangGraph's own checkpoint DB, which owns
+// ephemeral in-run/resumable state on the backend side.
+model Report {
+  id            String   @id @default(cuid())
+  threadId      String   @unique
+  topic         String
+  draft         String
+  wordCount     Int
+  revisionCount Int
+  sources       String // JSON-encoded Source[] (SQLite has no native JSON type)
+  createdAt     DateTime @default(now())
+}
