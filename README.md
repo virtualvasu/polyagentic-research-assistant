@@ -1,14 +1,3 @@
----
-title: Polyagentic Research Assistant
-emoji: 🔬
-colorFrom: gray
-colorTo: yellow
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
----
-
 <div align="center">
 
 # Polyagentic Research Assistant
@@ -17,8 +6,8 @@ license: mit
 
 <br>
 
-<a href="https://huggingface.co/spaces/virtualvasu/polyagentic-research-assistant">
-  <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Try%20it%20Live%20on%20Hugging%20Face%20Spaces-FCD34D?style=for-the-badge" alt="Hugging Face Spaces" />
+<a href="https://polyagentic-research-assistant.onrender.com">
+  <img src="https://img.shields.io/badge/Try%20it%20Live-polyagentic--research--assistant.onrender.com-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Live on Render" />
 </a>
 
 <br>
@@ -196,7 +185,7 @@ flowchart TD
 | **Web Search** | [Tavily Search API](https://tavily.com/) | Real-time web research, queried concurrently per sub-query |
 | **Reliability** | [tenacity](https://github.com/jd/tenacity) | Retry-with-backoff on transient LLM/search failures |
 | **Testing** | [pytest](https://pytest.org/) + `pytest-asyncio` | 45 backend tests, 100% offline (all LLM/search calls mocked) |
-| **Deployment** | Docker (multi-stage) → Hugging Face Spaces | Single container, two processes, one exposed port |
+| **Deployment** | Docker (multi-stage) → Render | Single container, two processes, one exposed port |
 
 ---
 
@@ -292,22 +281,24 @@ Frontend correctness is checked via `npm run lint` and `npx tsc --noEmit` (both 
 
 ---
 
-## Deployment (Hugging Face Spaces)
+## Deployment
 
-The root `Dockerfile` builds a single image: a multi-stage build compiles the Next.js app to its [standalone output](https://nextjs.org/docs/app/api-reference/config/next-config-js/output), then the final image installs the Python backend alongside it. `docker/start.sh` boots FastAPI on `127.0.0.1:8000` and the Next.js server on the Space's exposed port (`7860`), with Next.js's own Route Handlers as the only path between them.
+Live at **[polyagentic-research-assistant.onrender.com](https://polyagentic-research-assistant.onrender.com)** on [Render](https://render.com)'s free tier — the free tier spins the service down after 15 minutes of inactivity, so the first request after a quiet period takes 30-50s to wake it back up.
+
+The root `Dockerfile` builds a single image: a multi-stage build compiles the Next.js app to its [standalone output](https://nextjs.org/docs/app/api-reference/config/next-config-js/output), then the final image installs the Python backend alongside it. `docker/start.sh` boots FastAPI on `127.0.0.1:8000` and the Next.js server on the platform's assigned port (via the `PORT` env var, falling back to `7860` locally), with Next.js's own Route Handlers as the only path between them. It's a standard Docker image with no platform-specific assumptions baked in, so it runs unchanged on Render, Fly.io, a VPS, or locally:
 
 ```bash
 docker build -t research-assistant .
 docker run -p 7860:7860 -e GROQ_API_KEY=... -e TAVILY_API_KEY=... research-assistant
 ```
 
-On Spaces, set `GROQ_API_KEY` and `TAVILY_API_KEY` as **Repository secrets** — everything else has a working default. SQLite files (checkpoints + report history) live in the container's `/data`, which resets on a free-tier Space restart; that's an acceptable tradeoff for a demo deployment and is called out here rather than silently glossed over.
+On Render, `GROQ_API_KEY` and `TAVILY_API_KEY` are set as environment variables on the Web Service — everything else has a working default. SQLite files (checkpoints + report history) live in the container's `/data`, which resets on every redeploy since the free tier has no persistent disk; that's an acceptable tradeoff for a demo deployment and is called out here rather than silently glossed over.
 
 ---
 
 ## Roadmap
 
-- [ ] **Persistent volume for `/data`** — survive Space restarts on paid tiers
+- [ ] **Persistent volume for `/data`** — survive redeploys on a paid tier with disk support
 - [ ] **Evaluation agent** — automated report scoring on source fidelity, coverage, and conciseness
 - [ ] **LangSmith dashboards** — the tracing hooks are already wired (env-var only), a project dashboard is the remaining step
 - [ ] **RAG mode** — let a run ground itself in user-uploaded documents alongside web search

@@ -1,6 +1,9 @@
-# Single-container build for Hugging Face Spaces: a Next.js frontend
+# Single-container build (currently deployed on Render): a Next.js frontend
 # (exposed) reverse-proxying, via its own server-side Route Handlers, to an
 # internal FastAPI + LangGraph backend. Two processes, one image, one port.
+# Platform-agnostic — no assumptions beyond "give the container a PORT env
+# var and route traffic to it," so it runs unchanged on Render, Fly.io, a
+# VPS, or locally.
 
 # ---------- Frontend build ----------
 FROM node:20-bookworm-slim AS frontend-build
@@ -51,7 +54,8 @@ ENV BACKEND_URL=http://127.0.0.1:8000 \
     PYTHONUNBUFFERED=1 \
     PORT=7860
 
-# Hugging Face Spaces' default exposed port
+# Default port — overridden automatically at runtime by whatever PORT the
+# host platform injects (e.g. Render sets PORT=10000; start.sh picks it up).
 EXPOSE 7860
 
 CMD ["/app/start.sh"]
