@@ -1,3 +1,14 @@
+---
+title: Polyagentic Research Assistant
+emoji: 🔬
+colorFrom: gray
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 <div align="center">
 
 # Polyagentic Research Assistant
@@ -6,7 +17,7 @@
 
 <br>
 
-<a href="https://huggingface.co/spaces/virtualvasu/multi-agent-research-assistant">
+<a href="https://huggingface.co/spaces/virtualvasu/polyagentic-research-assistant">
   <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Try%20it%20Live%20on%20Hugging%20Face%20Spaces-FCD34D?style=for-the-badge" alt="Hugging Face Spaces" />
 </a>
 
