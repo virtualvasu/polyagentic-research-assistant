@@ -1,54 +1,147 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/*
+  Design system: "research dossier" — the app produces reports, so the UI
+  borrows from archival paper, case files, and stamped review slips rather
+  than a generic SaaS dashboard. Cool paper tones (not cream), a serif for
+  anything that reads like a document heading, monospace for anything that
+  reads like system/agent metadata, and a single warm ochre "flagged for
+  review" accent reserved for the one moment that matters most: the human
+  checkpoint.
+*/
+
 :root {
-  --background: #f8fafc;
+  --paper: #faf9f5;
+  --paper-recessed: #f0eee5;
   --surface: #ffffff;
-  --surface-muted: #f1f5f9;
-  --foreground: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --accent: #4f46e5;
-  --accent-foreground: #ffffff;
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
+  --ink: #1c1a16;
+  --ink-muted: #57534a;
+  --rule: #e1ddd0;
+  --accent: #a8570d;
+  --accent-strong: #8a4709;
+  --accent-foreground: #fffbf3;
+  --accent-wash: #a8570d14;
+  --verified: #2f7d4f;
+  --verified-wash: #2f7d4f14;
+  --danger: #b3261e;
+  --danger-wash: #b3261e14;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-paper: var(--paper);
+  --color-paper-recessed: var(--paper-recessed);
   --color-surface: var(--surface);
-  --color-surface-muted: var(--surface-muted);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-foreground: var(--accent-foreground);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
+  --color-accent-wash: var(--accent-wash);
+  --color-verified: var(--verified);
+  --color-verified-wash: var(--verified-wash);
   --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+
+  /* back-compat aliases used across existing components */
+  --color-background: var(--paper);
+  --color-surface-muted: var(--paper-recessed);
+  --color-foreground: var(--ink);
+  --color-muted: var(--ink-muted);
+  --color-border: var(--rule);
+  --color-success: var(--verified);
+  --color-warning: var(--accent);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
 }
 
+/* Default: follow the OS/browser preference, unless the in-app toggle
+   (ThemeToggle) has set an explicit choice via [data-theme] on <html>. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0f19;
-    --surface: #131826;
-    --surface-muted: #1a2032;
-    --foreground: #e5e9f0;
-    --muted: #8b93a7;
-    --border: #232a3b;
-    --accent: #818cf8;
-    --accent-foreground: #0b0f19;
-    --success: #34d399;
-    --warning: #fbbf24;
-    --danger: #f87171;
+  :root:not([data-theme="light"]) {
+    --paper: #17140f;
+    --paper-recessed: #211d16;
+    --surface: #1d1911;
+    --ink: #ede8dc;
+    --ink-muted: #a39c8c;
+    --rule: #35301f;
+    --accent: #e0a94a;
+    --accent-strong: #eebb69;
+    --accent-foreground: #1a1206;
+    --accent-wash: #e0a94a1f;
+    --verified: #74c491;
+    --verified-wash: #74c4911f;
+    --danger: #e5847c;
+    --danger-wash: #e5847c1f;
   }
 }
 
+/* Explicit dark choice — wins even when the OS is set to light. */
+:root[data-theme="dark"] {
+  --paper: #17140f;
+  --paper-recessed: #211d16;
+  --surface: #1d1911;
+  --ink: #ede8dc;
+  --ink-muted: #a39c8c;
+  --rule: #35301f;
+  --accent: #e0a94a;
+  --accent-strong: #eebb69;
+  --accent-foreground: #1a1206;
+  --accent-wash: #e0a94a1f;
+  --verified: #74c491;
+  --verified-wash: #74c4911f;
+  --danger: #e5847c;
+  --danger-wash: #e5847c1f;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+  }
+
+  /* subtle fixed-paper texture — a whisper of tooth, not decoration */
+  .bg-paper-texture {
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  .select-plain {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2357534a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.entry-in {
+  animation: rise-in 280ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

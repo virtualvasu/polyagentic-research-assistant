@@ -36,7 +36,7 @@ export function TopicForm({ onStart }: { onStart: (input: StartResearchInput) =>
   const canSubmit = topic.trim().length > 0 && health?.reachable && health?.tavily_configured && providerReady;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {health && !health.reachable && (
         <Banner tone="danger">
           Can&rsquo;t reach the research backend. Confirm the FastAPI service is running and{" "}
@@ -63,40 +63,39 @@ export function TopicForm({ onStart }: { onStart: (input: StartResearchInput) =>
           if (!canSubmit) return;
           onStart({ topic: topic.trim(), llm_provider: provider, llm_model: model });
         }}
-        className="space-y-5"
+        className="border border-rule bg-surface rounded-sm"
       >
-        <div>
-          <label htmlFor="topic" className="block text-sm font-medium mb-2">
-            Research topic
-          </label>
-          <textarea
-            id="topic"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. Impact of quantum computing on modern cryptography"
-            rows={3}
-            className="w-full resize-none rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
-          />
+        <div className="px-4 sm:px-5 py-3 border-b border-rule flex items-center justify-between">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-ink-muted">Research topic</span>
+          <span className="font-mono text-[11px] text-ink-muted">{topic.length}/500</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">LLM provider</label>
+        <textarea
+          id="topic"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value.slice(0, 500))}
+          placeholder="e.g. Impact of quantum computing on modern cryptography"
+          rows={4}
+          autoFocus
+          className="w-full resize-none bg-transparent px-4 sm:px-5 py-4 text-[15px] placeholder:text-ink-muted/70 focus:outline-none"
+        />
+
+        <div className="px-4 sm:px-5 py-4 border-t border-rule grid grid-cols-2 gap-3 sm:gap-4">
+          <Field label="Provider">
             <select
               value={provider}
               onChange={(e) => handleProviderChange(e.target.value as "groq" | "ollama")}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="select-plain w-full rounded-sm border border-rule bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent/50"
             >
               <option value="groq">Groq (cloud)</option>
               <option value="ollama">Ollama (local)</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Model</label>
+          </Field>
+          <Field label="Model">
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="select-plain w-full rounded-sm border border-rule bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent/50"
             >
               {(provider === "groq" ? GROQ_MODELS : OLLAMA_MODELS).map((m) => (
                 <option key={m} value={m}>
@@ -104,27 +103,38 @@ export function TopicForm({ onStart }: { onStart: (input: StartResearchInput) =>
                 </option>
               ))}
             </select>
-          </div>
+          </Field>
         </div>
 
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Start research
-          <ArrowRight className="size-4" />
-        </button>
+        <div className="px-4 sm:px-5 py-4 border-t border-rule">
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Start research
+            <ArrowRight className="size-4" />
+          </button>
+        </div>
       </form>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block font-mono text-[11px] uppercase tracking-widest text-ink-muted mb-1.5">{label}</span>
+      {children}
+    </label>
   );
 }
 
 function Banner({ tone, children }: { tone: "danger" | "warning"; children: React.ReactNode }) {
   return (
     <div
-      className={`flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm ${
-        tone === "danger" ? "border-danger/30 bg-danger/5 text-danger" : "border-warning/30 bg-warning/5 text-warning"
+      className={`flex items-start gap-2.5 rounded-sm border px-3.5 py-3 text-sm ${
+        tone === "danger" ? "border-danger/30 bg-danger-wash text-danger" : "border-accent/30 bg-accent-wash text-accent-strong"
       }`}
     >
       <AlertTriangle className="size-4 mt-0.5 shrink-0" />

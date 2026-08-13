@@ -54,35 +54,46 @@ export function ReportView({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Words" value={wordCount} />
-        <Stat label="Revisions" value={finalState.revision_number} />
-        <Stat label="Sources" value={uniqueSources.length} />
-      </div>
-
-      <div className="rounded-xl border border-border bg-surface p-5 sm:p-8">
-        <Markdown>{finalState.draft}</Markdown>
-      </div>
-
-      {uniqueSources.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Sources</h4>
-          <ul className="space-y-1 text-sm">
-            {uniqueSources.map((s, i) => (
-              <li key={i} className="truncate">
-                <a href={s.url} className="text-accent hover:underline" target="_blank" rel="noreferrer">
-                  {s.title || s.url}
-                </a>
-              </li>
-            ))}
-          </ul>
+      <div className="border border-rule bg-surface rounded-sm overflow-hidden">
+        <div className="px-5 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-rule">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-verified">Final report</span>
+          <h2 className="font-display italic text-2xl sm:text-3xl mt-1.5 leading-snug">{finalState.main_task}</h2>
+          <p className="font-mono text-xs text-ink-muted mt-3">
+            {wordCount} words &middot; {finalState.revision_number} revision
+            {finalState.revision_number === 1 ? "" : "s"} &middot; {uniqueSources.length} sources
+          </p>
         </div>
-      )}
+
+        <div className="px-5 sm:px-10 py-7 sm:py-8">
+          <Markdown>{finalState.draft}</Markdown>
+        </div>
+
+        {uniqueSources.length > 0 && (
+          <div className="px-5 sm:px-10 py-6 border-t border-rule">
+            <h4 className="font-mono text-[11px] uppercase tracking-widest text-ink-muted mb-3">References</h4>
+            <ol className="space-y-1.5 text-sm">
+              {uniqueSources.map((s, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span className="font-mono text-ink-muted shrink-0">[{i + 1}]</span>
+                  <a
+                    href={s.url}
+                    className="text-accent hover:underline truncate"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {s.title || s.url}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-2.5">
         <button
           onClick={handleDownload}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-muted"
+          className="inline-flex items-center gap-1.5 rounded-sm border border-rule px-4 py-2 text-sm font-medium hover:bg-paper-recessed"
         >
           <Download className="size-4" />
           Download .md
@@ -90,28 +101,19 @@ export function ReportView({
         <button
           onClick={handleSave}
           disabled={saving || saved}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:opacity-90 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-sm bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
         >
           {saved ? <Check className="size-4" /> : <Save className="size-4" />}
           {saved ? "Saved to history" : saving ? "Saving…" : "Save to history"}
         </button>
         <button
           onClick={onStartOver}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-muted ml-auto"
+          className="inline-flex items-center gap-1.5 rounded-sm border border-rule px-4 py-2 text-sm font-medium hover:bg-paper-recessed ml-auto"
         >
           <RotateCcw className="size-4" />
           New research
         </button>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface px-4 py-3">
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
-      <div className="text-xs text-muted">{label}</div>
     </div>
   );
 }

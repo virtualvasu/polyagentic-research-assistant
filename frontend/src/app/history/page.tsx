@@ -11,14 +11,14 @@ export default async function HistoryPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10 sm:py-14 space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Saved reports</h1>
-        <p className="text-muted mt-1.5">Reports you chose to keep, stored locally via Prisma.</p>
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">
+      <div className="mb-8">
+        <h1 className="font-display italic text-3xl sm:text-4xl tracking-tight">Saved reports</h1>
+        <p className="text-ink-muted mt-2.5">Reports you chose to keep, stored locally via Prisma.</p>
       </div>
 
       {reports.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border py-16 flex flex-col items-center gap-2 text-muted">
+        <div className="border border-dashed border-rule rounded-sm py-16 flex flex-col items-center gap-2 text-ink-muted">
           <Inbox className="size-6" />
           <p className="text-sm">No saved reports yet.</p>
           <Link href="/" className="text-sm text-accent hover:underline">
@@ -26,17 +26,17 @@ export default async function HistoryPage() {
           </Link>
         </div>
       ) : (
-        <ul className="space-y-2.5">
-          {reports.map((r) => (
-            <li key={r.id}>
+        <ol className="border border-rule bg-surface rounded-sm overflow-hidden">
+          {reports.map((r, i) => (
+            <li key={r.id} className={i !== 0 ? "border-t border-rule" : ""}>
               <Link
                 href={`/history/${r.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 hover:border-accent/40 hover:bg-surface-muted transition-colors"
+                className="flex items-center gap-3.5 px-4 sm:px-5 py-4 hover:bg-paper-recessed transition-colors"
               >
-                <FileText className="size-4 text-muted shrink-0" />
+                <FileText className="size-4 text-ink-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{r.topic}</p>
-                  <p className="text-xs text-muted mt-0.5">
+                  <p className="font-mono text-xs text-ink-muted mt-1">
                     {r.wordCount} words &middot; {r.revisionCount} revisions &middot;{" "}
                     {new Date(r.createdAt).toLocaleDateString()}
                   </p>
@@ -44,7 +44,7 @@ export default async function HistoryPage() {
               </Link>
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </div>
   );

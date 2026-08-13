@@ -29,6 +29,10 @@
 
 *Five specialized agents. One human checkpoint. A typed contract at every boundary.*
 
+<br/>
+
+<img src="frontend/public/demo.gif" alt="Full run: entering a topic, the Researcher's findings pausing for human review, and the final structured report" width="720" />
+
 </div>
 
 ---

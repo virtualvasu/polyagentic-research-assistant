@@ -18,7 +18,7 @@ export function DeleteReportButton({ id }: { id: string }) {
         router.refresh();
       }}
       disabled={busy}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3.5 py-2 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
+      className="shrink-0 inline-flex items-center gap-1.5 rounded-sm border border-danger/30 px-3.5 py-2 text-sm font-medium text-danger hover:bg-danger-wash disabled:opacity-50"
     >
       <Trash2 className="size-4" />
       {busy ? "Deleting…" : "Delete"}

@@ -12,11 +12,14 @@ const NODE_LABEL: Record<string, string> = {
 
 export function ActivityTimeline({ timeline }: { timeline: TimelineEntry[] }) {
   return (
-    <ol className="space-y-3">
+    <ol className="space-y-2.5">
       {timeline.map((entry, i) => (
-        <li key={i} className="rounded-lg border border-border bg-surface p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+        <li
+          key={i}
+          className="border border-rule bg-surface rounded-sm px-4 py-3.5 entry-in"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-ink-muted">
               {NODE_LABEL[entry.node] ?? entry.node}
             </span>
           </div>
@@ -36,7 +39,7 @@ function NodeBody({ node, output }: { node: string; output: Record<string, unkno
         <p className="text-sm flex items-center gap-1.5">
           <ArrowRight className="size-3.5 text-accent shrink-0" />
           Routed to <span className="font-medium">{next}</span>
-          {task && <span className="text-muted"> &mdash; {task}</span>}
+          {task && <span className="text-ink-muted"> &mdash; {task}</span>}
         </p>
       );
     }
@@ -46,15 +49,15 @@ function NodeBody({ node, output }: { node: string; output: Record<string, unkno
       if (!brief) return null;
       return (
         <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-1.5 text-muted">
+          <div className="flex items-center gap-1.5 text-ink-muted font-mono text-xs">
             <Search className="size-3.5 shrink-0" />
-            <span>{brief.sub_queries.join(" &middot; ")}</span>
+            <span>{brief.sub_queries.join(" · ")}</span>
           </div>
           <ul className="list-disc pl-5 space-y-1">
             {brief.bullets.slice(0, 3).map((b, i) => (
               <li key={i}>{b}</li>
             ))}
-            {brief.bullets.length > 3 && <li className="text-muted">+{brief.bullets.length - 3} more</li>}
+            {brief.bullets.length > 3 && <li className="text-ink-muted">+{brief.bullets.length - 3} more</li>}
           </ul>
         </div>
       );
@@ -76,13 +79,13 @@ function NodeBody({ node, output }: { node: string; output: Record<string, unkno
         <div className="text-sm space-y-1.5">
           <p className="flex items-center gap-1.5">
             {approved ? (
-              <CheckCircle2 className="size-3.5 text-success shrink-0" />
+              <CheckCircle2 className="size-3.5 text-verified shrink-0" />
             ) : (
-              <XCircle className="size-3.5 text-warning shrink-0" />
+              <XCircle className="size-3.5 text-accent shrink-0" />
             )}
             {approved ? "Approved" : "Revisions requested"}
           </p>
-          {!approved && <p className="text-muted whitespace-pre-line">{notes}</p>}
+          {!approved && <p className="text-ink-muted whitespace-pre-line">{notes}</p>}
         </div>
       );
     }
